@@ -14,8 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"manga-tool/internal/realdebrid"
 )
 
@@ -1001,42 +999,6 @@ func GetEnvBool(key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
-}
-
-// GenerateCredentials creates a credentials.json file with the given username and password
-func GenerateCredentials(username, password, outFile string) error {
-	// Generate password hash
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("error generating password hash: %v", err)
-	}
-
-	// Create credentials struct
-	creds := struct {
-		Username     string `json:"username"`
-		PasswordHash string `json:"password_hash"`
-	}{
-		Username:     username,
-		PasswordHash: string(hash),
-	}
-
-	// Marshal to JSON
-	credsJSON, err := json.MarshalIndent(creds, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error marshaling credentials: %v", err)
-	}
-
-	// Write to file
-	if err := os.WriteFile(outFile, credsJSON, 0600); err != nil {
-		return fmt.Errorf("error writing credentials file: %v", err)
-	}
-
-	return nil
-}
-
-// GenerateDefaultCredentials creates a credentials.json file with default values
-func GenerateDefaultCredentials(outFile string) error {
-	return GenerateCredentials("kulaid", "PPJEZi8u*G2ogUxMnKYN", outFile)
 }
 
 // ForceRcloneCache forces a file to be cached by rclone

@@ -17,6 +17,7 @@ services:
       # Logs directory
       - ./data/logs:/opt/manga-tool/logs
     environment:
+      # RealDebrid Integration (leave empty to disable RealDebrid support)
       - REALDEBRID_API_KEY=
       - MANGA_BASE_DIR=/manga
       - TEMP_DIR=/tmp
