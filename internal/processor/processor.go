@@ -1697,6 +1697,13 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 
 	for _, file := range files {
 		baseName := filepath.Base(file)
+		
+		// For oneshots, force all files to be treated as chapters
+		if config.IsOneshot {
+			chapters = append(chapters, file)
+			continue
+		}
+		
 		volNum := extractVolumeNumber(baseName)
 		chapterNum := extractChapterNumber(baseName)
 
