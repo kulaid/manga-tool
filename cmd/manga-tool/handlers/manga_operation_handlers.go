@@ -303,6 +303,7 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 		// Get form values for scraping sources
 		mangareaderURL := r.FormValue("mangareader_url")
 		mangadexURL := r.FormValue("mangadex_url")
+		isOneshot := r.FormValue("is_oneshot") == "true"
 
 		// Start a process to update metadata
 		proc := h.ProcessManager.NewProcess(internal.ProcessTypeMetadataUpdate, mangaTitle)
@@ -348,7 +349,7 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 			"download_username": "",
 			"download_password": "",
 			"is_manga":          true,
-			"is_oneshot":        false,
+			"is_oneshot":        isOneshot,
 			"delete_originals":  false,
 			"language":          "en",
 			"update_metadata":   true, // Flag to indicate this is a metadata update
@@ -441,10 +442,12 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 
 	// Get cached source URLs if available
 	var cachedMangaReader, cachedMangaDex, cachedDownloadURL string
+	var cachedIsOneshot bool
 	if cachedSources, err := cache.GetCachedSources(mangaTitle); err == nil {
 		cachedMangaReader = cachedSources.MangaReader
 		cachedMangaDex = cachedSources.MangaDex
 		cachedDownloadURL = cachedSources.DownloadURL
+		cachedIsOneshot = cachedSources.IsOneshot
 	}
 
 	// Render template for GET request
@@ -456,6 +459,7 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 		"CachedMangaReader": cachedMangaReader,
 		"CachedMangaDex":    cachedMangaDex,
 		"CachedDownloadURL": cachedDownloadURL,
+		"CachedIsOneshot":   cachedIsOneshot,
 	}
 
 	if err := h.Templates.ExecuteTemplate(w, "update_metadata.html", data); err != nil {

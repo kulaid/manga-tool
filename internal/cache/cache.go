@@ -11,6 +11,7 @@ type MangaSource struct {
 	MangaReader string `json:"mangareader,omitempty"`
 	MangaDex    string `json:"mangadex,omitempty"`
 	DownloadURL string `json:"download_url,omitempty"`
+	IsOneshot   bool   `json:"is_oneshot,omitempty"`
 }
 
 // ChapterTitle represents a title for a specific chapter
@@ -104,6 +105,32 @@ func SaveSources(title, mangareaderURL, mangadexURL string) error {
 	return SaveCache(cache)
 }
 
+// SaveSourcesWithOneshot saves source links with oneshot flag for a manga title
+func SaveSourcesWithOneshot(title, mangareaderURL, mangadexURL string, isOneshot bool) error {
+	cache, err := LoadCache()
+	if err != nil {
+		return err
+	}
+
+	// Get existing or create new
+	source, exists := cache[title]
+	if !exists {
+		source = MangaSource{}
+	}
+
+	// Update non-empty values only
+	if mangareaderURL != "" {
+		source.MangaReader = mangareaderURL
+	}
+	if mangadexURL != "" {
+		source.MangaDex = mangadexURL
+	}
+	source.IsOneshot = isOneshot
+
+	cache[title] = source
+	return SaveCache(cache)
+}
+
 // SaveSourceWithDownload saves source links including download URL for a manga title
 func SaveSourceWithDownload(title, mangareaderURL, mangadexURL, downloadURL string) error {
 	cache, err := LoadCache()
@@ -127,6 +154,35 @@ func SaveSourceWithDownload(title, mangareaderURL, mangadexURL, downloadURL stri
 	if downloadURL != "" {
 		source.DownloadURL = downloadURL
 	}
+
+	cache[title] = source
+	return SaveCache(cache)
+}
+
+// SaveSourceWithDownloadAndOneshot saves source links including download URL and oneshot flag for a manga title
+func SaveSourceWithDownloadAndOneshot(title, mangareaderURL, mangadexURL, downloadURL string, isOneshot bool) error {
+	cache, err := LoadCache()
+	if err != nil {
+		return err
+	}
+
+	// Get existing or create new
+	source, exists := cache[title]
+	if !exists {
+		source = MangaSource{}
+	}
+
+	// Update non-empty values only
+	if mangareaderURL != "" {
+		source.MangaReader = mangareaderURL
+	}
+	if mangadexURL != "" {
+		source.MangaDex = mangadexURL
+	}
+	if downloadURL != "" {
+		source.DownloadURL = downloadURL
+	}
+	source.IsOneshot = isOneshot
 
 	cache[title] = source
 	return SaveCache(cache)

@@ -88,6 +88,7 @@ type Config struct {
 	ChapterTitles   map[float64]string
 	DeleteOriginals bool
 	IsManga         bool
+	IsOneshot       bool // New field for oneshot flag
 	Language        string
 	Parallelism     int // Number of concurrent workers (0 = use NumCPU)
 	Logger          Logger
@@ -101,6 +102,7 @@ func DefaultConfig() *Config {
 		ChapterTitles:   make(map[float64]string),
 		DeleteOriginals: true,
 		IsManga:         true,
+		IsOneshot:       false,
 		Language:        "en",
 		Parallelism:     0, // Use CPU count automatically
 	}
@@ -233,31 +235,44 @@ func createComicInfoXML(fileType string, number float64, seriesName string, volu
 	}
 
 	if fileType == "chapter" {
-		info.Number = fmt.Sprintf("%g", number)  // Remove trailing zeros for display
-		info.Chapter = fmt.Sprintf("%g", number) // Add chapter number
-		// Add volume information if available
-		if volumeNumber > 0 {
-			info.Volume = fmt.Sprintf("%d", volumeNumber)
-		}
-		if chapterTitle == "" {
-			// Need to convert float to int for lookup if it's a whole number
-			if number == float64(int(number)) {
-				chapterTitle = getChapterTitle(number, config)
+		// Handle oneshot special case - force to volume 1, chapter 1
+		if config.IsOneshot {
+			info.Number = "1"
+			info.Chapter = "1"
+			info.Volume = "1"
+			// For oneshots, use the chapter title from the map (which should be the manga title)
+			if title, exists := config.ChapterTitles[1.0]; exists {
+				info.Title = title
 			} else {
-				// For fractional chapters, format as string first
-				chapterNumStr := fmt.Sprintf("%g", number)
-				chapterTitle = fmt.Sprintf("Chapter %s", chapterNumStr)
-				// Try to find title for fractional chapter
-				for k, v := range config.ChapterTitles {
-					// Compare as strings to handle floating point precision issues
-					if fmt.Sprintf("%g", k) == chapterNumStr {
-						chapterTitle = v
-						break
+				info.Title = chapterTitle
+			}
+		} else {
+			info.Number = fmt.Sprintf("%g", number)  // Remove trailing zeros for display
+			info.Chapter = fmt.Sprintf("%g", number) // Add chapter number
+			// Add volume information if available
+			if volumeNumber > 0 {
+				info.Volume = fmt.Sprintf("%d", volumeNumber)
+			}
+			if chapterTitle == "" {
+				// Need to convert float to int for lookup if it's a whole number
+				if number == float64(int(number)) {
+					chapterTitle = getChapterTitle(number, config)
+				} else {
+					// For fractional chapters, format as string first
+					chapterNumStr := fmt.Sprintf("%g", number)
+					chapterTitle = fmt.Sprintf("Chapter %s", chapterNumStr)
+					// Try to find title for fractional chapter
+					for k, v := range config.ChapterTitles {
+						// Compare as strings to handle floating point precision issues
+						if fmt.Sprintf("%g", k) == chapterNumStr {
+							chapterTitle = v
+							break
+						}
 					}
 				}
 			}
+			info.Title = chapterTitle
 		}
-		info.Title = chapterTitle
 	} else {
 		// For volumes, set Number to "0.01" format for Komga compatibility where 0.01 is volume 1
 		info.Number = fmt.Sprintf("0.%02d", volumeNumber)
@@ -1108,10 +1123,15 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 	// Extract chapter number if it's a chapter
 	chapterNum := float64(0)
 	if fileType == "chapter" {
-		chapterNum = extractChapterNumber(baseName)
-		if chapterNum == 0 {
-			if logger != nil {
-				logger.Warning(fmt.Sprintf("Could not extract chapter number from %s, using 0", baseName))
+		if config.IsOneshot {
+			// For oneshots, always force chapter number to 1
+			chapterNum = 1.0
+		} else {
+			chapterNum = extractChapterNumber(baseName)
+			if chapterNum == 0 {
+				if logger != nil {
+					logger.Warning(fmt.Sprintf("Could not extract chapter number from %s, using 0", baseName))
+				}
 			}
 		}
 	}
@@ -1137,27 +1157,39 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 	// Create output filename
 	var outputFilename string
 	if fileType == "chapter" {
-		// Format: {series title} - {chapter number}.cbz
-		// Use 4-digit zero-padded integer, with decimal part if present (e.g., 0058.1.cbz, 0100.15.cbz)
-		intPart := int(chapterNum)
-		fracPart := chapterNum - float64(intPart)
-		if fracPart > 0.001 { // Use small epsilon to avoid floating point errors
-			// Has fractional part - format the full number then extract decimal part
-			fullStr := fmt.Sprintf("%.10f", chapterNum) // Use enough precision
-			// Remove trailing zeros and find decimal point
-			fullStr = strings.TrimRight(fullStr, "0")
-			fullStr = strings.TrimRight(fullStr, ".")
-			// Extract just the decimal part after the dot
-			parts := strings.Split(fullStr, ".")
-			if len(parts) == 2 {
-				outputFilename = fmt.Sprintf("%s - %04d.%s.cbz", cleanSeries, intPart, parts[1])
+		// Handle oneshot special case - use Vol.1 Ch.1 format with title
+		if config.IsOneshot {
+			// For oneshots, force Vol.1 Ch.1 format with the title
+			var chapterTitle string
+			if title, exists := config.ChapterTitles[1.0]; exists {
+				chapterTitle = title
 			} else {
-				// Shouldn't happen, but fallback
+				chapterTitle = cleanSeries // Fallback to series name
+			}
+			outputFilename = fmt.Sprintf("%s - Vol.1 Ch.1 - %s.cbz", cleanSeries, chapterTitle)
+		} else {
+			// Format: {series title} - {chapter number}.cbz
+			// Use 4-digit zero-padded integer, with decimal part if present (e.g., 0058.1.cbz, 0100.15.cbz)
+			intPart := int(chapterNum)
+			fracPart := chapterNum - float64(intPart)
+			if fracPart > 0.001 { // Use small epsilon to avoid floating point errors
+				// Has fractional part - format the full number then extract decimal part
+				fullStr := fmt.Sprintf("%.10f", chapterNum) // Use enough precision
+				// Remove trailing zeros and find decimal point
+				fullStr = strings.TrimRight(fullStr, "0")
+				fullStr = strings.TrimRight(fullStr, ".")
+				// Extract just the decimal part after the dot
+				parts := strings.Split(fullStr, ".")
+				if len(parts) == 2 {
+					outputFilename = fmt.Sprintf("%s - %04d.%s.cbz", cleanSeries, intPart, parts[1])
+				} else {
+					// Shouldn't happen, but fallback
+					outputFilename = fmt.Sprintf("%s - %04d.cbz", cleanSeries, intPart)
+				}
+			} else {
+				// No fractional part (e.g., 58 -> "0058.cbz")
 				outputFilename = fmt.Sprintf("%s - %04d.cbz", cleanSeries, intPart)
 			}
-		} else {
-			// No fractional part (e.g., 58 -> "0058.cbz")
-			outputFilename = fmt.Sprintf("%s - %04d.cbz", cleanSeries, intPart)
 		}
 	} else {
 		// Format: {series title} - Vol {volume number with 4 digits}.cbz

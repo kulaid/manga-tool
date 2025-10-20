@@ -85,6 +85,20 @@
                     </div>
                 </div>
 
+                <!-- Processing Options Section -->
+                <div class="card-header">
+                    Processing Options
+                </div>
+
+                <div class="mb-4">
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="is_oneshot" name="is_oneshot" value="true" {{if .CachedIsOneshot}}checked{{end}}>
+                        <label class="form-check-label" for="is_oneshot">
+                            This is a oneshot (single chapter)
+                        </label>
+                    </div>
+                </div>
+
                 <!-- File Selection -->
                 <div class="card-header">
                     Files to Update

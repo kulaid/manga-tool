@@ -240,126 +240,6 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 		logger.Info("Files moved to temp directory. Continuing with normal processing flow...")
 	}
 
-	if isOneshot {
-		// Create oneshots directory if it doesn't exist
-		oneshotsDir := filepath.Join(appConfig.MangaBaseDir, "Oneshots")
-		if err := os.MkdirAll(oneshotsDir, 0755); err != nil {
-			logger.Error(fmt.Sprintf("Error creating oneshots directory: %v", err))
-			processManager.FailProcess(proc.ID, fmt.Sprintf("Error creating oneshots directory: %v", err))
-			return
-		}
-
-		// Download oneshot
-		if downloadURL != "" {
-			proc.Update(10, 100, fmt.Sprintf("Downloading oneshot from %s...", downloadURL))
-			logger.Info(fmt.Sprintf("DOWNLOAD STARTING: Fetching oneshot from %s", downloadURL))
-
-			uploadDir := filepath.Join(appConfig.TempDir, "manga_uploads")
-			if err := util.DownloadFile(downloadURL, uploadDir, downloadUsername, downloadPassword, appConfig.RealDebridAPIKey, logger); err != nil {
-				logger.Error(fmt.Sprintf("Download failed: %v", err))
-				processManager.FailProcess(proc.ID, fmt.Sprintf("Download failed: %v", err))
-				return
-			}
-			logger.Info("Download completed successfully")
-		}
-
-		// Check for CBZ files in upload directory
-		uploadDir := filepath.Join(appConfig.TempDir, "manga_uploads")
-		cbzFiles, err := util.FindCBZFiles(uploadDir)
-		if err != nil || len(cbzFiles) == 0 {
-			logger.Error("No CBZ files found in upload directory")
-			processManager.FailProcess(proc.ID, "No CBZ files found in upload directory")
-			return
-		}
-
-		// Copy the file directly to Oneshots directory with manga title
-		proc.Update(70, 100, "Copying oneshot to library...")
-		newName := fmt.Sprintf("%s.cbz", mangaTitle)
-		newPath := filepath.Join(oneshotsDir, newName)
-		if err := util.CopyFile(cbzFiles[0], newPath); err != nil {
-			logger.Error(fmt.Sprintf("Error copying file: %v", err))
-			processManager.FailProcess(proc.ID, fmt.Sprintf("Error copying file: %v", err))
-			return
-		}
-		logger.Info(fmt.Sprintf("Copied %s to %s", cbzFiles[0], newPath))
-
-		// Clean up temporary files
-		if err := os.RemoveAll(uploadDir); err != nil {
-			logger.Warning(fmt.Sprintf("Error cleaning up temporary files: %v", err))
-		}
-
-		// Refresh Komga library
-		proc.Update(90, 100, "Refreshing Komga libraries...")
-		logger.Info("Refreshing Komga libraries...")
-
-		// Get Komga configuration directly from environment variables
-		komgaURL := os.Getenv("KOMGA_URL")
-		if komgaURL == "" {
-			komgaURL = appConfig.Komga.URL // Fallback to config if env var not set
-		}
-
-		komgaUsername := os.Getenv("KOMGA_USERNAME")
-		if komgaUsername == "" {
-			komgaUsername = appConfig.Komga.Username
-		}
-
-		komgaPassword := os.Getenv("KOMGA_PASSWORD")
-		if komgaPassword == "" {
-			komgaPassword = appConfig.Komga.Password
-		}
-
-		komgaRefreshEnabled := true // Always enable refresh for this operation
-
-		// Get libraries from environment variable
-		// If KOMGA_LIBRARIES is set (even if empty), use it - empty means refresh ALL libraries
-		// If KOMGA_LIBRARIES is not set, fall back to config
-		var libraries []string
-		komgaLibraries, komgaLibrariesSet := os.LookupEnv("KOMGA_LIBRARIES")
-		if komgaLibrariesSet {
-			// Environment variable is set - use it (empty = refresh all)
-			if komgaLibraries != "" {
-				libraries = strings.Split(komgaLibraries, ",")
-				// Filter out empty entries
-				filteredLibraries := make([]string, 0)
-				for _, lib := range libraries {
-					if strings.TrimSpace(lib) != "" {
-						filteredLibraries = append(filteredLibraries, lib)
-					}
-				}
-				libraries = filteredLibraries
-			}
-			// If komgaLibraries is "", libraries stays as empty slice = refresh all
-		} else {
-			// Environment variable not set - use config
-			if len(appConfig.Komga.Libraries) > 0 {
-				libraries = appConfig.Komga.Libraries
-			}
-		}
-
-		// Log the configuration we're using
-		logger.Info(fmt.Sprintf("Komga refresh configuration: URL=%s, Username=%s, Libraries=%v",
-			komgaURL, komgaUsername, libraries))
-
-		// Create client with explicit configuration
-		komgaClient := komga.NewClient(&komga.Config{
-			URL:            komgaURL,
-			Username:       komgaUsername,
-			Password:       komgaPassword,
-			Libraries:      libraries,
-			RefreshEnabled: komgaRefreshEnabled,
-			Logger:         logger,
-		})
-
-		if komgaClient.RefreshAllLibraries() {
-			logger.Info("Komga libraries refreshed successfully")
-		} else {
-			logger.Warning("Failed to refresh Komga libraries")
-		}
-
-		processManager.CompleteProcess(proc.ID)
-		return
-	}
-
 	// Regular manga processing
 	proc.Update(0, 100, "Starting manga processing...")
 	logger.Info(fmt.Sprintf("Starting manga processing for %s", mangaTitle))
@@ -533,6 +413,12 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 		}
 	}
 
+	// Handle oneshot mode - override chapter titles to set chapter 1 as the manga title
+	if isOneshot {
+		chapterTitles = map[float64]string{1.0: mangaTitle}
+		logger.Info(fmt.Sprintf("Oneshot mode: Setting chapter 1 title to '%s'", mangaTitle))
+	}
+
 	// Collect missing chapter titles from user input if needed
 	proc.Update(55, 100, "Collecting missing chapter titles...")
 	logger.Info("Checking for missing chapter titles...")
@@ -569,7 +455,7 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 
 	// Process the files
 	mangaTargetDir = filepath.Join(appConfig.MangaBaseDir, mangaTitle)
-	err = processManga(cbzFiles, mangaTargetDir, mangaTitle, chapterTitles, logger, proc, cancelChan, deleteOriginals, language, appConfig.Parallelism, func(prompt, inputType string) string {
+	err = processManga(cbzFiles, mangaTargetDir, mangaTitle, chapterTitles, logger, proc, cancelChan, deleteOriginals, language, isOneshot, appConfig.Parallelism, func(prompt, inputType string) string {
 		return webInput(currentProcessID, prompt, inputType)
 	})
 	if err != nil {
@@ -578,17 +464,22 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 		return
 	}
 
-	// Save source URLs to cache
+	// Save source URLs to cache with oneshot flag
 	if mangareaderURL != "" || mangadexURL != "" {
-		if err := cache.SaveSources(mangaTitle, mangareaderURL, mangadexURL); err != nil {
+		if err := cache.SaveSourcesWithOneshot(mangaTitle, mangareaderURL, mangadexURL, isOneshot); err != nil {
 			logger.Warning(fmt.Sprintf("Failed to save source URLs to cache: %v", err))
 		}
 	}
 
 	// Save download URL to cache if provided
 	if downloadURL != "" {
-		if err := cache.SaveSourceWithDownload(mangaTitle, mangareaderURL, mangadexURL, downloadURL); err != nil {
+		if err := cache.SaveSourceWithDownloadAndOneshot(mangaTitle, mangareaderURL, mangadexURL, downloadURL, isOneshot); err != nil {
 			logger.Warning(fmt.Sprintf("Failed to save download URL to cache: %v", err))
+		}
+	} else if mangareaderURL == "" && mangadexURL == "" {
+		// Save only oneshot flag if no other URLs
+		if err := cache.SaveSourcesWithOneshot(mangaTitle, "", "", isOneshot); err != nil {
+			logger.Warning(fmt.Sprintf("Failed to save oneshot flag to cache: %v", err))
 		}
 	}
 
@@ -727,7 +618,7 @@ func CollectMissingChapterTitles(neededChapters map[float64]bool, existingTitles
 
 // processManga is a replacement for processor.ProcessManga
 func processManga(files []string, targetDir string, mangaTitle string, chapterTitles map[float64]string,
-	logger util.Logger, proc *internal.Process, cancelChan chan struct{}, deleteOriginals bool, language string, parallelism int,
+	logger util.Logger, proc *internal.Process, cancelChan chan struct{}, deleteOriginals bool, language string, isOneshot bool, parallelism int,
 	webInput func(prompt, inputType string) string) error {
 
 	// Check for cancellation before starting
@@ -749,6 +640,7 @@ func processManga(files []string, targetDir string, mangaTitle string, chapterTi
 		Logger:          logger,
 		ChapterTitles:   chapterTitles,
 		IsManga:         true,
+		IsOneshot:       isOneshot,
 		DeleteOriginals: deleteOriginals,
 		Language:        language,
 		Parallelism:     parallelism, // Use passed parallelism value
