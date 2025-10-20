@@ -57,10 +57,12 @@
                     Manga Information
                 </div>
 
-                    <div class="mb-3">
-                        <label for="manga_title" class="form-label">Manga Title</label>
-                        <input type="text" class="form-control" id="manga_title" name="manga_title" required placeholder="Enter manga title" value="{{.PrefilledTitle}}">
-                    </div>                <!-- Source Options Section -->
+                <div class="mb-4">
+                    <label for="manga_title" class="form-label">Manga Title</label>
+                    <input type="text" class="form-control" id="manga_title" name="manga_title" required placeholder="Enter manga title...">
+                </div>
+
+                <!-- Source Options Section -->
                 <div class="card-header">
                     Source Files
                 </div>
@@ -72,7 +74,7 @@
                             <div class="mb-3">
                                 <label for="download_url" class="form-label">URL</label>
                                 <div class="url-input-group">
-                                    <input type="url" class="form-control" id="download_url" name="download_url" placeholder="https://example.com/manga.cbz" value="{{.CachedDownloadURL}}">
+                                    <input type="url" class="form-control" id="download_url" name="download_url" placeholder="https://example.com/manga.cbz">
                                     <a href="#" class="btn btn-secondary btn-sm" id="nyaa-search">
                                         <i class="bi bi-search"></i> Search Nyaa
                                     </a>
@@ -114,10 +116,10 @@
                 </div>
 
                 <div class="mb-4">
-                                        <div class="mb-3">
+                    <div class="mb-3">
                         <label for="mangareader_url" class="form-label">MangaReader.to URL</label>
                         <div class="url-input-group">
-                            <input type="url" class="form-control" id="mangareader_url" name="mangareader_url" placeholder="https://mangareader.to/manga-name" value="{{.CachedMangaReader}}">
+                            <input type="url" class="form-control" id="mangareader_url" name="mangareader_url" placeholder="https://mangareader.to/manga-name">
                             <a href="#" class="btn btn-secondary btn-sm" id="mangareader-search">
                                 <i class="bi bi-search"></i> Search
                             </a>
@@ -127,7 +129,7 @@
                     <div class="mb-3">
                         <label for="mangadex_url" class="form-label">MangaDex URL</label>
                         <div class="url-input-group">
-                            <input type="url" class="form-control" id="mangadex_url" name="mangadex_url" placeholder="https://mangadex.org/title/..." value="{{.CachedMangaDex}}">
+                            <input type="url" class="form-control" id="mangadex_url" name="mangadex_url" placeholder="https://mangadex.org/title/...">
                             <a href="#" class="btn btn-secondary btn-sm" id="mangadex-search">
                                 <i class="bi bi-search"></i> Search
                             </a>
@@ -142,7 +144,7 @@
 
                 <div class="mb-4">
                     <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="is_oneshot" name="is_oneshot" value="true" {{if .CachedIsOneshot}}checked{{end}}>
+                        <input class="form-check-input" type="checkbox" id="is_oneshot" name="is_oneshot" value="true">
                         <label class="form-check-label" for="is_oneshot">
                             This is a oneshot (single chapter)
                         </label>

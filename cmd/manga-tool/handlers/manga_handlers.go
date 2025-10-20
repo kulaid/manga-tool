@@ -609,19 +609,6 @@ func (h *MangaHandler) IndexHandler(w http.ResponseWriter, r *http.Request) {
 		"CurrentYear": time.Now().Year(),
 	}
 
-	// Check if a title is provided as query parameter to pre-populate cached values
-	title := r.URL.Query().Get("title")
-	if title != "" {
-		// Load cached values for this title
-		if cachedSources, err := cache.GetCachedSources(title); err == nil {
-			data["CachedMangaReader"] = cachedSources.MangaReader
-			data["CachedMangaDex"] = cachedSources.MangaDex
-			data["CachedDownloadURL"] = cachedSources.DownloadURL
-			data["CachedIsOneshot"] = cachedSources.IsOneshot
-			data["PrefilledTitle"] = title
-		}
-	}
-
 	// Render template
 	if err := h.Templates.ExecuteTemplate(w, "index.html", data); err != nil {
 		h.Logger("ERROR", fmt.Sprintf("Error rendering template: %v", err))
