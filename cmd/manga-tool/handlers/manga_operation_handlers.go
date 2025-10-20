@@ -458,12 +458,11 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 	}
 
 	// Get cached source URLs if available
-	var cachedMangaReader, cachedMangaDex, cachedDownloadURL string
+	var cachedMangaReader, cachedMangaDex string
 	var cachedIsOneshot bool
 	if cachedSources, err := cache.GetCachedSources(mangaTitle); err == nil {
 		cachedMangaReader = cachedSources.MangaReader
 		cachedMangaDex = cachedSources.MangaDex
-		cachedDownloadURL = cachedSources.DownloadURL
 		cachedIsOneshot = cachedSources.IsOneshot
 	}
 
@@ -475,7 +474,6 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 		"Year":              time.Now().Year(),
 		"CachedMangaReader": cachedMangaReader,
 		"CachedMangaDex":    cachedMangaDex,
-		"CachedDownloadURL": cachedDownloadURL,
 		"CachedIsOneshot":   cachedIsOneshot,
 	}
 
