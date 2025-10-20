@@ -212,21 +212,21 @@
                     return;
                 }
                 
-                fetch(`/api/chapters?title=${encodeURIComponent(title)}`)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
+                // Fetch chapter links and oneshot status in parallel
+                Promise.all([
+                    fetch(`/api/chapters?title=${encodeURIComponent(title)}`).then(r => r.ok ? r.json() : null),
+                    fetch(`/api/oneshot-check?title=${encodeURIComponent(title)}`).then(r => r.ok ? r.json() : null)
+                ])
+                .then(([chaptersData, oneshotData]) => {
+                    // Handle chapter links
+                    if (chaptersData) {
                         // Auto-fill URL fields if available
                         let mangareaderUrl = '';
                         let mangadexUrl = '';
                         let downloadUrl = '';
                         
                         // Find the first URL from each source
-                        for (const chapter of data) {
+                        for (const chapter of chaptersData) {
                             if (chapter.source === 'mangareader' && !mangareaderUrl && chapter.url) {
                                 mangareaderUrl = chapter.url;
                             }
@@ -250,10 +250,19 @@
                         if (downloadUrl) {
                             downloadUrlInput.value = downloadUrl;
                         }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching chapter links:', error);
-                    });
+                    }
+                    
+                    // Handle oneshot status
+                    if (oneshotData && oneshotData.isOneshot) {
+                        const oneshotCheckbox = document.getElementById('is_oneshot');
+                        if (oneshotCheckbox) {
+                            oneshotCheckbox.checked = true;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching manga data:', error);
+                });
             }, 500);
             
             // Add event listener to manga title input
