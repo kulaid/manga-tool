@@ -358,8 +358,19 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 	// Analyze the files to determine which chapters need titles
 	proc.Update(40, 100, "Analyzing files for chapter information...")
 	logger.Info("Analyzing files for chapter information...")
-	neededChapters, discoveredTitles := processor.AnalyzeChaptersNeeded(cbzFiles, logger)
-	logger.Info(fmt.Sprintf("Found %d chapters that might need titles", len(neededChapters)))
+	
+	var neededChapters map[float64]bool
+	var discoveredTitles map[float64]string
+	
+	if isOneshot {
+		// For oneshots, we don't need to analyze - just use chapter 1
+		neededChapters = make(map[float64]bool)
+		discoveredTitles = make(map[float64]string)
+		logger.Info("Oneshot mode: Skipping file analysis, will use chapter 1")
+	} else {
+		neededChapters, discoveredTitles = processor.AnalyzeChaptersNeeded(cbzFiles, logger)
+		logger.Info(fmt.Sprintf("Found %d chapters that might need titles", len(neededChapters)))
+	}
 
 	// Initialize chapter titles map
 	chapterTitles := make(map[float64]string)
@@ -423,7 +434,8 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 	proc.Update(55, 100, "Collecting missing chapter titles...")
 	logger.Info("Checking for missing chapter titles...")
 
-	if len(neededChapters) > 0 {
+	// Skip missing chapter collection for oneshots since we've already set the title
+	if !isOneshot && len(neededChapters) > 0 {
 		missingTitles := make(map[float64]bool)
 		for ch := range neededChapters {
 			if _, exists := chapterTitles[ch]; !exists {
@@ -438,6 +450,8 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 			})
 			logger.Info(fmt.Sprintf("Chapter title collection complete. Total titles: %d", len(chapterTitles)))
 		}
+	} else if isOneshot {
+		logger.Info("Skipping missing chapter collection for oneshot")
 	}
 
 	// Save chapter titles to cache
