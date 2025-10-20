@@ -13,7 +13,7 @@ data/
 *.test
 *.out
 go.work
-manga-tool
+/manga-tool
 # Docker
 .dockerignore
 docker-compose.yml
