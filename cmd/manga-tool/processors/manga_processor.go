@@ -358,10 +358,10 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 	// Analyze the files to determine which chapters need titles
 	proc.Update(40, 100, "Analyzing files for chapter information...")
 	logger.Info("Analyzing files for chapter information...")
-	
+
 	var neededChapters map[float64]bool
 	var discoveredTitles map[float64]string
-	
+
 	if isOneshot {
 		// For oneshots, we don't need to analyze - just use chapter 1
 		neededChapters = make(map[float64]bool)
