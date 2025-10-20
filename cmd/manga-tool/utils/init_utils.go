@@ -24,7 +24,7 @@ type AppConfig struct {
 	PromptTimeout    time.Duration
 	Komga            komga.Config
 	RealDebridAPIKey string
-	Parallelism      int // Number of parallel workers for operations, configurable via MANGA_PARALLELISM
+	Parallelism      int // Number of parallel workers for operations, configurable via PARALLELISM
 }
 
 // createRequiredDirectories creates all necessary directories for the application
@@ -34,15 +34,14 @@ func createRequiredDirectories(appConfig *AppConfig) error {
 		return fmt.Errorf("failed to create temp directory %s: %v", appConfig.TempDir, err)
 	}
 
-	// Create cache directory (in same parent as temp)
-	configDir := filepath.Dir(appConfig.TempDir)
-	cacheDir := filepath.Join(configDir, "cache")
+	// Create cache directory (always at /config/cache)
+	cacheDir := "/config/cache"
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return fmt.Errorf("failed to create cache directory %s: %v", cacheDir, err)
 	}
 
-	// Create logs directory
-	logsDir := filepath.Join(configDir, "logs")
+	// Create logs directory (always at /config/logs)
+	logsDir := "/config/logs"
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create logs directory %s: %v", logsDir, err)
 	}
@@ -213,20 +212,9 @@ func Initialize(appConfig *AppConfig) (*template.Template, error) {
 		log.Printf("Komga integration disabled (no configuration found)")
 	}
 
-	// Set parallelism from environment variable, default to 8
-	appConfig.Parallelism = GetEnvInt("MANGA_PARALLELISM", 8)
+	// Set parallelism from environment variable, default to 2
+	appConfig.Parallelism = GetEnvInt("PARALLELISM", 2)
 	log.Printf("Using parallelism setting: %d", appConfig.Parallelism)
-
-	// Initialize cache - use CACHE_DIR environment variable or fallback to /.manga-tool
-	cacheDir := GetEnv("CACHE_DIR", "/.manga-tool")
-	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(cacheDir, 0755); err != nil {
-			log.Printf("Warning: Failed to access/create cache directory at %s: %v", cacheDir, err)
-			log.Printf("Will fallback to temporary directory for cache")
-			cacheDir = appConfig.TempDir
-		}
-	}
-	cache.Initialize(cacheDir)
 
 	return templates, nil
 }

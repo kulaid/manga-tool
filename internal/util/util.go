@@ -363,7 +363,7 @@ func ExtractAndDeleteRARs(directory string, logger Logger) error {
 
 	// Get parallelism from environment variable or use default 4
 	parallelism := 4
-	if envVal := os.Getenv("MANGA_PARALLELISM"); envVal != "" {
+	if envVal := os.Getenv("PARALLELISM"); envVal != "" {
 		if val, err := strconv.Atoi(envVal); err == nil && val > 0 {
 			parallelism = val
 		}

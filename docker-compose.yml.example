@@ -3,16 +3,18 @@ services:
     build: .
     container_name: manga-tool
     user: "1000:1000"  # Run as your user ID to avoid root-owned files
-    ports:
-      - "25000:25000"
     volumes:
-      # Mount your entire system for maximum flexibility
       - /mnt:/mnt
-      # Configuration and data directory
       - ./config:/config
-      # System time for proper timestamps
       - /etc/localtime:/etc/localtime:ro
     environment:
-      # Directory paths (use /mnt paths to access your mounted drives)
-      - MANGA_BASE_DIR=/mnt/your-manga-directory
+      - REALDEBRID_API_KEY=
+      - MANGA_BASE_DIR=
+      - PORT=25000
+      - PARALLELISM=
+      - KOMGA_URL=
+      - KOMGA_USERNAME=
+      - KOMGA_PASSWORD=
+      - KOMGA_LIBRARIES=
+      - KOMGA_REFRESH_ENABLED=
     restart: unless-stopped

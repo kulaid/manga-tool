@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -23,13 +22,10 @@ func parseLibrariesEnv(envValue string) []string {
 
 // main is the entry point of the application
 func main() {
-	// Set up default config directory
-	configDir := utils.GetEnv("CONFIG_DIR", "/config")
-	
 	// Create default configuration
 	appConfig := &utils.AppConfig{
 		MangaBaseDir:     utils.GetEnv("MANGA_BASE_DIR", "/mnt/manga"),
-		TempDir:          filepath.Join(configDir, "temp"),
+		TempDir:          "/config/temp",
 		Port:             utils.GetEnv("PORT", "25000"),
 		PromptTimeout:    5 * time.Minute,
 		RealDebridAPIKey: utils.GetEnv("REALDEBRID_API_KEY", ""),
