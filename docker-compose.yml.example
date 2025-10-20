@@ -6,40 +6,13 @@ services:
     ports:
       - "25000:25000"
     volumes:
-      # Manga output directory
-      - ./data/manga:/manga
-      # Temporary downloads directory
-      - ./data/temp:/tmp
-      # Komga library directory
-      - ./data/komga:/komga
-      # Cache directory
-      - ./data/cache:/opt/manga-tool/cache
-      # Logs directory
-      - ./data/logs:/opt/manga-tool/logs
+      # Mount your entire system for maximum flexibility
+      - /mnt:/mnt
+      # Configuration and data directory
+      - ./config:/config
+      # System time for proper timestamps
+      - /etc/localtime:/etc/localtime:ro
     environment:
-      # RealDebrid Integration (leave empty to disable RealDebrid support)
-      - REALDEBRID_API_KEY=
-      - MANGA_BASE_DIR=/manga
-      - TEMP_DIR=/tmp
-      - KOMGA_BASE_DIR=/komga
-      - CACHE_DIR=/opt/manga-tool/cache
-      - PORT=25000
-      # Komga Integration (leave empty to disable Komga support)
-      - KOMGA_URL=${KOMGA_URL:-}
-      - KOMGA_USERNAME=${KOMGA_USERNAME:-}
-      - KOMGA_PASSWORD=${KOMGA_PASSWORD:-}
-      - KOMGA_LIBRARIES=${KOMGA_LIBRARIES:-}
-      - KOMGA_REFRESH_ENABLED=${KOMGA_REFRESH_ENABLED:-true}
+      # Directory paths (use /mnt paths to access your mounted drives)
+      - MANGA_BASE_DIR=/mnt/your-manga-directory
     restart: unless-stopped
-
-volumes:
-  manga_data:
-    driver: local
-  temp_data:
-    driver: local
-  komga_data:
-    driver: local
-  cache_data:
-    driver: local
-  logs_data:
-    driver: local

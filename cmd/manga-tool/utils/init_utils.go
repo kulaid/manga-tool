@@ -27,8 +27,40 @@ type AppConfig struct {
 	Parallelism      int // Number of parallel workers for operations, configurable via MANGA_PARALLELISM
 }
 
+// createRequiredDirectories creates all necessary directories for the application
+func createRequiredDirectories(appConfig *AppConfig) error {
+	// Create temp directory
+	if err := os.MkdirAll(appConfig.TempDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory %s: %v", appConfig.TempDir, err)
+	}
+
+	// Create cache directory (in same parent as temp)
+	configDir := filepath.Dir(appConfig.TempDir)
+	cacheDir := filepath.Join(configDir, "cache")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory %s: %v", cacheDir, err)
+	}
+
+	// Create logs directory
+	logsDir := filepath.Join(configDir, "logs")
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create logs directory %s: %v", logsDir, err)
+	}
+
+	// Initialize cache system with the cache directory
+	cache.Initialize(cacheDir)
+
+	log.Printf("Created directories: temp=%s, cache=%s, logs=%s", appConfig.TempDir, cacheDir, logsDir)
+	return nil
+}
+
 // Initialize initializes the application (no auth - handled by Authelia)
 func Initialize(appConfig *AppConfig) (*template.Template, error) {
+	// Create necessary directories automatically
+	if err := createRequiredDirectories(appConfig); err != nil {
+		return nil, fmt.Errorf("failed to create required directories: %v", err)
+	}
+
 	// Define template functions
 	funcMap := template.FuncMap{
 		"contains": strings.Contains,
