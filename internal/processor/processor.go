@@ -1157,16 +1157,10 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 	// Create output filename
 	var outputFilename string
 	if fileType == "chapter" {
-		// Handle oneshot special case - use Vol.1 Ch.1 format with title
+		// Handle oneshot special case - use simple filename
 		if config.IsOneshot {
-			// For oneshots, force Vol.1 Ch.1 format with the title
-			var chapterTitle string
-			if title, exists := config.ChapterTitles[1.0]; exists {
-				chapterTitle = title
-			} else {
-				chapterTitle = cleanSeries // Fallback to series name
-			}
-			outputFilename = fmt.Sprintf("%s - Vol.1 Ch.1 - %s.cbz", cleanSeries, chapterTitle)
+			// For oneshots, just use the series name
+			outputFilename = fmt.Sprintf("%s.cbz", cleanSeries)
 		} else {
 			// Format: {series title} - {chapter number}.cbz
 			// Use 4-digit zero-padded integer, with decimal part if present (e.g., 0058.1.cbz, 0100.15.cbz)
