@@ -272,7 +272,7 @@ func (h *MangaOperationHandler) ChaptersAPIHandler(w http.ResponseWriter, r *htt
 		Chapters:  chapters,
 		IsOneshot: isOneshot,
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
