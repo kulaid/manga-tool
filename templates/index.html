@@ -212,57 +212,59 @@
                     return;
                 }
                 
-                // Fetch chapter links and oneshot status in parallel
-                Promise.all([
-                    fetch(`/api/chapters?title=${encodeURIComponent(title)}`).then(r => r.ok ? r.json() : null),
-                    fetch(`/api/oneshot-check?title=${encodeURIComponent(title)}`).then(r => r.ok ? r.json() : null)
-                ])
-                .then(([chaptersData, oneshotData]) => {
-                    // Handle chapter links
-                    if (chaptersData) {
-                        // Auto-fill URL fields if available
-                        let mangareaderUrl = '';
-                        let mangadexUrl = '';
-                        let downloadUrl = '';
-                        
-                        // Find the first URL from each source
-                        for (const chapter of chaptersData) {
-                            if (chapter.source === 'mangareader' && !mangareaderUrl && chapter.url) {
-                                mangareaderUrl = chapter.url;
+                fetch(`/api/chapters?title=${encodeURIComponent(title)}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Handle chapter links (data.chapters contains the URLs)
+                        if (data.chapters) {
+                            // Auto-fill URL fields if available
+                            let mangareaderUrl = '';
+                            let mangadexUrl = '';
+                            let downloadUrl = '';
+                            
+                            // Find the first URL from each source
+                            for (const chapter of data.chapters) {
+                                if (chapter.source === 'mangareader' && !mangareaderUrl && chapter.url) {
+                                    mangareaderUrl = chapter.url;
+                                }
+                                if (chapter.source === 'mangadex' && !mangadexUrl && chapter.url) {
+                                    mangadexUrl = chapter.url;
+                                }
+                                if (chapter.source === 'download' && !downloadUrl && chapter.url) {
+                                    downloadUrl = chapter.url;
+                                }
                             }
-                            if (chapter.source === 'mangadex' && !mangadexUrl && chapter.url) {
-                                mangadexUrl = chapter.url;
+                            
+                            // Only update if empty or if we have a value
+                            if (mangareaderUrl) {
+                                mangareaderUrlInput.value = mangareaderUrl;
                             }
-                            if (chapter.source === 'download' && !downloadUrl && chapter.url) {
-                                downloadUrl = chapter.url;
+                            
+                            if (mangadexUrl) {
+                                mangadexUrlInput.value = mangadexUrl;
+                            }
+                            
+                            if (downloadUrl) {
+                                downloadUrlInput.value = downloadUrl;
                             }
                         }
                         
-                        // Only update if empty or if we have a value
-                        if (mangareaderUrl) {
-                            mangareaderUrlInput.value = mangareaderUrl;
+                        // Handle oneshot status (data.isOneshot)
+                        if (data.isOneshot) {
+                            const oneshotCheckbox = document.getElementById('is_oneshot');
+                            if (oneshotCheckbox) {
+                                oneshotCheckbox.checked = true;
+                            }
                         }
-                        
-                        if (mangadexUrl) {
-                            mangadexUrlInput.value = mangadexUrl;
-                        }
-                        
-                        if (downloadUrl) {
-                            downloadUrlInput.value = downloadUrl;
-                        }
-                    }
-                    
-                    // Handle oneshot status
-                    if (oneshotData && oneshotData.isOneshot) {
-                        const oneshotCheckbox = document.getElementById('is_oneshot');
-                        if (oneshotCheckbox) {
-                            oneshotCheckbox.checked = true;
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching manga data:', error);
-                });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching manga data:', error);
+                    });
             }, 500);
             
             // Add event listener to manga title input

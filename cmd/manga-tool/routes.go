@@ -46,7 +46,6 @@ func RegisterRoutes(r *mux.Router, ctx *AppContext) {
 		{"/api/source-selection", ctx.MangaOpHandler.SourceSelectionHandler, []string{"POST"}, false},
 		{"/api/prompt-response", ctx.MangaOpHandler.PromptResponseHandler, []string{"POST"}, false},
 		{"/api/chapters", ctx.MangaOpHandler.ChaptersAPIHandler, []string{"GET"}, false},
-		{"/api/oneshot-check", ctx.MangaOpHandler.OneshotCheckHandler, []string{"GET"}, false},
 
 		// Manga management routes
 		{"/manage-manga", ctx.MangaOpHandler.ManageMangaHandler, []string{"GET"}, false},

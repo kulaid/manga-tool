@@ -255,9 +255,26 @@ func (h *MangaOperationHandler) ChaptersAPIHandler(w http.ResponseWriter, r *htt
 		}
 	}
 
-	// Return chapters as JSON
+	// Response structure that includes oneshot information
+	type ChaptersAPIResponse struct {
+		Chapters  []ChapterResponse `json:"chapters"`
+		IsOneshot bool              `json:"isOneshot"`
+	}
+
+	// Get oneshot status from cached sources
+	isOneshot := false
+	if err == nil {
+		isOneshot = cachedSources.IsOneshot
+	}
+
+	// Return chapters and oneshot status as JSON
+	response := ChaptersAPIResponse{
+		Chapters:  chapters,
+		IsOneshot: isOneshot,
+	}
+	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(chapters)
+	json.NewEncoder(w).Encode(response)
 }
 
 // ManageMangaHandler renders the manage manga page
@@ -1395,38 +1412,4 @@ func (h *MangaOperationHandler) ProcessRerunStartHandler(w http.ResponseWriter, 
 
 	// Redirect to the process page which will actually start the process
 	http.Redirect(w, r, "/process", http.StatusSeeOther)
-}
-
-// OneshotCheckHandler checks if a manga title is marked as a oneshot in cache
-func (h *MangaOperationHandler) OneshotCheckHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Get the manga title from query parameter
-	title := r.URL.Query().Get("title")
-	if title == "" {
-		http.Error(w, "Title parameter is required", http.StatusBadRequest)
-		return
-	}
-
-	// Get cached sources for this title
-	cachedSources, err := cache.GetCachedSources(title)
-	isOneshot := false
-	if err == nil {
-		isOneshot = cachedSources.IsOneshot
-	}
-
-	// Return JSON response
-	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
-		"title":     title,
-		"isOneshot": isOneshot,
-	}
-	
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Error encoding response", http.StatusInternalServerError)
-		return
-	}
 }
