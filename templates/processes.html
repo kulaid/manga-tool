@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Processes - Manga Tool</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="manga-header">
+            <h1><i class="bi bi-activity me-2"></i>Manga Tool</h1>
+            <p class="lead">Active Processes</p>
+        </div>
+
+        <!-- Flash Messages -->
+        {{if .Flashes}}
+            {{range .Flashes}}
+                <div class="alert alert-{{.Type}} fade-in alert-dismissible fade show" role="alert">
+                    {{.Message}}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {{end}}
+        {{end}}
+
+        <!-- Navigation Links -->
+        <div class="nav-links">
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">
+                        <i class="bi bi-plus-circle me-2"></i>Add Manga
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/manage-manga">
+                        <i class="bi bi-gear me-2"></i>Manage Manga
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="/processes">
+                        <i class="bi bi-activity me-2"></i>Processes
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Process Controls -->
+        <div class="process-section fade-in">
+            <div class="d-flex justify-content-center align-items-center mb-4" style="gap: 2rem;">
+                <h2 class="mb-0">Active Processes</h2>
+                <div class="form-check" style="background: none; padding: 0;">
+                    <input class="form-check-input" type="checkbox" id="auto-refresh" checked>
+                    <label class="form-check-label" for="auto-refresh">
+                        <i class="bi bi-arrow-clockwise"></i> Auto-refresh
+                    </label>
+                </div>
+            </div>
+
+            <div id="processes-container">
+                <!-- Processes will be loaded here via JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const processesContainer = document.getElementById('processes-container');
+            const autoRefreshToggle = document.getElementById('auto-refresh');
+            let refreshInterval;
+
+            function formatDuration(ms) {
+                const seconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const hours = Math.floor(minutes / 60);
+                
+                if (hours > 0) {
+                    return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+                } else if (minutes > 0) {
+                    return `${minutes}m ${seconds % 60}s`;
+                } else {
+                    return `${seconds}s`;
+                }
+            }
+
+            function getStatusClass(status) {
+                switch (status.toLowerCase()) {
+                    case 'running': return 'status-running';
+                    case 'complete': return 'status-complete';
+                    case 'failed': return 'status-failed';
+                    case 'cancelled': return 'status-cancelled';
+                    default: return '';
+                }
+            }
+
+            function getStatusIcon(status) {
+                switch (status.toLowerCase()) {
+                    case 'running': return 'bi-play-circle';
+                    case 'complete': return 'bi-check-circle';
+                    case 'failed': return 'bi-x-circle';
+                    case 'cancelled': return 'bi-stop-circle';
+                    default: return 'bi-question-circle';
+                }
+            }
+
+            function getTypeClass(type) {
+                switch (type.toLowerCase()) {
+                    case 'delete': return 'bg-danger';
+                    case 'process': return 'bg-primary';
+                    case 'metadata_update': return 'bg-info';
+                    case 'cache_warm': return 'bg-warning text-dark';
+                    default: return 'bg-secondary';
+                }
+            }
+
+            function getDisplayType(type) {
+                switch (type.toLowerCase()) {
+                    case 'process': return 'ADDED';
+                    case 'delete': return 'DELETE';
+                    case 'metadata_update': return 'METADATA';
+                    case 'cache_warm': return 'CACHE';
+                    default: return type.toUpperCase();
+                }
+            }
+
+            function createProcessCard(process) {
+                const statusClass = getStatusClass(process.status);
+                const statusIcon = getStatusIcon(process.status);
+                const typeClass = getTypeClass(process.type);
+                const displayType = getDisplayType(process.type);
+                
+                // Calculate duration based on status - use end_time for completed processes
+                let duration;
+                if (process.status.toLowerCase() === 'running') {
+                    duration = formatDuration(Date.now() - new Date(process.start_time).getTime());
+                } else {
+                    // For completed/failed/cancelled processes, use the difference between start and end time
+                    const endTime = process.end_time ? new Date(process.end_time) : Date.now();
+                    duration = formatDuration(endTime - new Date(process.start_time).getTime());
+                }
+                
+                // Check if this process specifically needs a manual restart
+                // It should be true if:
+                // 1. It's an ADDED process (type=process) AND
+                // 2. It has a message about restarting OR it's marked as waiting for input
+                const needsRestart = process.type === 'process' && 
+                                    (process.is_waiting === true || // Check if process is waiting for input
+                                    (process.message && 
+                                        (process.message.includes('/process-rerun/') || 
+                                        process.message.includes('To complete this process') ||
+                                        process.message.includes('needs to be started')
+                                    )));
+                
+                // Generate a restart URL if it's not in the message already
+                let restartUrl = '';
+                if (needsRestart) {
+                    if (process.message && process.message.includes('/process-rerun/')) {
+                        // Extract URL from message
+                        restartUrl = process.message.substring(
+                            process.message.indexOf('/process-rerun/'),
+                            process.message.indexOf(' ', process.message.indexOf('/process-rerun/')) !== -1 ?
+                                process.message.indexOf(' ', process.message.indexOf('/process-rerun/')) :
+                                process.message.length
+                        );
+                    } else {
+                        // Create URL based on process ID
+                        restartUrl = `/process-rerun/${process.id}`;
+                    }
+                }
+                
+                return `
+                    <div class="card process-card" data-process-id="${process.id}">
+                        <div class="card-body">
+                            <div class="process-header">
+                                <h5 class="process-title">
+                                    <span class="badge ${typeClass} me-2">${displayType}</span>
+                                    ${process.title}
+                                </h5>
+                            </div>
+                            <div class="process-info">
+                                <span class="process-status ${statusClass}">
+                                    <i class="bi ${statusIcon}"></i> ${process.status}
+                                </span>
+                                <span class="process-duration">
+                                    <i class="bi bi-clock"></i> ${duration}
+                                </span>
+                            </div>
+                            <div class="process-progress">
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar ${process.status.toLowerCase() !== 'running' ? '' : 'progress-bar-striped progress-bar-animated'}" 
+                                         role="progressbar" 
+                                         style="width: ${process.progress_percentage}%"
+                                         aria-valuenow="${process.progress_percentage}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        ${process.progress_percentage}%
+                                    </div>
+                                </div>
+                                <small class="text-muted mt-1 d-block">${process.message || ''}</small>
+                                ${needsRestart ? `
+                                    <div class="alert alert-info mt-2">
+                                        <strong>This process needs to be started manually:</strong> 
+                                        <a href="${restartUrl}" class="btn btn-sm btn-success ms-2">
+                                            <i class="bi bi-play-fill"></i> Start Process
+                                        </a>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            ${process.error ? `<div class="process-error"><i class="bi bi-exclamation-triangle"></i> ${process.error}</div>` : ''}
+                            <div class="process-actions">
+                                ${process.status === 'running' ? `
+                                    <div class="d-flex justify-content-between w-100">
+                                        <div>
+                                            <button class="btn btn-sm btn-danger cancel-process" data-process-id="${process.id}">
+                                                <i class="bi bi-x-circle"></i> Cancel
+                                            </button>
+                                            <button class="btn btn-sm btn-danger force-cancel-process" data-process-id="${process.id}">
+                                                <i class="bi bi-stop-circle"></i> Force Cancel
+                                            </button>
+                                        </div>
+                                        <div>
+                                            <a href="/process/${process.id}" class="btn btn-sm btn-primary">
+                                                <i class="bi bi-eye"></i> View Process
+                                            </a>
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div class="d-flex justify-content-between w-100">
+                                        <button class="btn btn-sm btn-outline-danger delete-process" data-process-id="${process.id}">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                        <div>
+                                            ${needsRestart ? `
+                                                <a href="${restartUrl}" class="btn btn-sm btn-success">
+                                                    <i class="bi bi-play-fill"></i> Start Process
+                                                </a>
+                                            ` : `
+                                                <button class="btn btn-sm btn-primary reprocess" data-process-id="${process.id}">
+                                                    <i class="bi bi-arrow-repeat"></i> Process Again
+                                                </button>
+                                            `}
+                                            ${process.type !== 'metadata_update' ? `
+                                            <button class="btn btn-sm btn-outline-secondary view-details" data-process-id="${process.id}">
+                                                <i class="bi bi-info-circle"></i> Details
+                                            </button>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function loadProcesses() {
+                fetch('/api/processes')
+                    .then(response => response.json())
+                    .then(data => {
+                        // Sort processes by start time (newest first)
+                        data.processes.sort((a, b) => {
+                            // Convert start times to timestamps
+                            const aTime = new Date(a.start_time).getTime();
+                            const bTime = new Date(b.start_time).getTime();
+                            
+                            // Sort newest first (descending order)
+                            return bTime - aTime;
+                        });
+                        
+                        processesContainer.innerHTML = data.processes.length > 0 
+                            ? data.processes.map(createProcessCard).join('')
+                            : '<div class="alert alert-info">No active processes</div>';
+                        
+                        // Add event listeners to new buttons
+                        document.querySelectorAll('.cancel-process').forEach(button => {
+                            button.addEventListener('click', function() {
+                                cancelProcess(this.dataset.processId);
+                            });
+                        });
+                        
+                        document.querySelectorAll('.view-details').forEach(button => {
+                            button.addEventListener('click', function() {
+                                viewProcessDetails(this.dataset.processId);
+                            });
+                        });
+
+                        document.querySelectorAll('.force-cancel-process').forEach(button => {
+                            button.addEventListener('click', function() {
+                                cancelProcess(this.dataset.processId, true);
+                            });
+                        });
+
+                        document.querySelectorAll('.reprocess').forEach(button => {
+                            button.addEventListener('click', function() {
+                                rerunProcess(this.dataset.processId);
+                            });
+                        });
+
+                        document.querySelectorAll('.delete-process').forEach(button => {
+                            button.addEventListener('click', function() {
+                                deleteProcess(this.dataset.processId);
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error loading processes:', error);
+                        processesContainer.innerHTML = '<div class="alert alert-danger">Error loading processes</div>';
+                    });
+            }
+
+            function cancelProcess(processId, force = false) {
+                if (!confirm(force ? 'Are you sure you want to force cancel this process? This will stop it immediately.' : 'Are you sure you want to cancel this process?')) {
+                    return;
+                }
+
+                fetch(`/api/processes/${processId}/cancel${force ? '?force=true' : ''}`, { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            loadProcesses();
+                        } else {
+                            alert('Failed to cancel process: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error cancelling process:', error);
+                        alert('Error cancelling process');
+                    });
+            }
+
+            function rerunProcess(processId) {
+                if (!confirm('Are you sure you want to rerun this process?')) {
+                    return;
+                }
+
+                fetch(`/api/processes/${processId}/rerun`, { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            loadProcesses();
+                        } else {
+                            alert('Failed to rerun process: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error rerunning process:', error);
+                        alert('Error rerunning process');
+                    });
+            }
+
+            function deleteProcess(processId) {
+                if (!confirm('Are you sure you want to delete this process from history? This cannot be undone.')) {
+                    return;
+                }
+
+                fetch(`/api/processes/${processId}/delete`, { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            loadProcesses();
+                        } else {
+                            alert('Failed to delete process: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error deleting process:', error);
+                        alert('Error deleting process');
+                    });
+            }
+
+            function viewProcessDetails(processId) {
+                // Get the process card
+                const processCard = document.querySelector(`[data-process-id="${processId}"]`).closest('.process-card');
+                
+                // First try to find the direct "Start Process" link if it exists
+                const startProcessLink = processCard.querySelector('a[href*="/process-rerun/"]');
+                if (startProcessLink) {
+                    window.location.href = startProcessLink.getAttribute('href');
+                    return;
+                }
+                
+                // Check the message content to determine if it needs a restart
+                const messageElement = processCard.querySelector('.process-progress small.text-muted');
+                const message = messageElement ? messageElement.textContent.trim() : '';
+                
+                const typeElement = processCard.querySelector('.badge');
+                const statusElement = processCard.querySelector('.process-status');
+                
+                if (typeElement && statusElement && messageElement) {
+                    const processType = typeElement.textContent.trim();
+                    const processStatus = statusElement.textContent.trim();
+                    
+                    // Only redirect to restart URL if the message indicates it needs to be restarted
+                    const needsRestart = processType === 'ADDED' && 
+                        (processStatus.includes('Complete') || processStatus.includes('COMPLETE')) &&
+                        message && (
+                            message.includes('/process-rerun/') ||
+                            message.includes('To complete this process') ||
+                            message.includes('needs to be started')
+                        );
+                        
+                    if (needsRestart) {
+                        // Look for restart URL in message
+                        if (message.includes('/process-rerun/')) {
+                            const rerunUrl = message.substring(
+                                message.indexOf('/process-rerun/'),
+                                message.indexOf(' ', message.indexOf('/process-rerun/')) !== -1 ?
+                                    message.indexOf(' ', message.indexOf('/process-rerun/')) :
+                                    message.length
+                            );
+                            window.location.href = rerunUrl;
+                        } else {
+                            // Use ID-based URL as fallback
+                            window.location.href = `/process-rerun/${processId}`;
+                        }
+                        return;
+                    }
+                }
+                
+                // For all other cases, use the standard process details URL
+                window.location.href = `/process/${processId}`;
+            }
+
+            function startAutoRefresh() {
+                stopAutoRefresh();
+                refreshInterval = setInterval(loadProcesses, 1000);
+            }
+
+            function stopAutoRefresh() {
+                if (refreshInterval) {
+                    clearInterval(refreshInterval);
+                }
+            }
+
+            // Initial load
+            loadProcesses();
+
+            // Set up auto-refresh toggle
+            autoRefreshToggle.addEventListener('change', function() {
+                if (this.checked) {
+                    startAutoRefresh();
+                } else {
+                    stopAutoRefresh();
+                }
+            });
+
+            // Start auto-refresh if enabled
+            if (autoRefreshToggle.checked) {
+                startAutoRefresh();
+            }
+        });
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

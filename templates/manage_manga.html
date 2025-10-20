@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Manga - Manga Tool</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="manga-header">
+            <h1><i class="bi bi-gear-wide-connected me-2"></i>Manga Tool</h1>
+            <p class="lead">Manage Manga</p>
+        </div>
+
+        <!-- Flash Messages -->
+        {{if .Flashes}}
+            <div class="alert alert-info fade-in">
+                {{range .Flashes}}
+                    {{.Message}}<br>
+                {{end}}
+            </div>
+        {{end}}
+
+        <!-- Navigation Links -->
+        <div class="nav-links">
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">
+                        <i class="bi bi-plus-circle me-2"></i>Add Manga
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="/manage-manga">
+                        <i class="bi bi-gear me-2"></i>Manage Manga
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/processes">
+                        <i class="bi bi-activity me-2"></i>Processes
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="manage-section fade-in">
+            <div class="card-header">
+                Manage Manga Series
+            </div>
+
+            {{if .Titles}}
+                <ul class="manga-list">
+                    {{range .Titles}}
+                        <li class="manga-item">
+                            <span class="manga-title">{{.}}</span>
+                            <div class="action-buttons">
+                                <a href="/update-metadata/{{.}}" class="btn btn-info btn-sm">
+                                    <i class="bi bi-tag"></i> Metadata
+                                </a>
+                                <a href="/delete-manga/{{.}}" class="btn btn-danger btn-sm">
+                                    <i class="bi bi-trash"></i> Delete
+                                </a>
+                            </div>
+                        </li>
+                    {{end}}
+                </ul>
+            {{else}}
+                <div class="empty-message">
+                    <i class="bi bi-inbox"></i>
+                    <h4 class="mt-3">No manga series found</h4>
+                    <p class="text-muted">Add a new manga series to get started</p>
+                    <a href="/" class="btn btn-primary mt-3">
+                        <i class="bi bi-plus-circle"></i> Add Manga
+                    </a>
+                </div>
+            {{end}}
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Manga Tool &copy; {{.CurrentYear}}</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+services:
+  manga-tool:
+    build: .
+    container_name: manga-tool
+    user: "1000:1000"  # Run as your user ID to avoid root-owned files
+    ports:
+      - "25000:25000"
+    volumes:
+      # Manga output directory
+      - ./data/manga:/manga
+      # Temporary downloads directory
+      - ./data/temp:/tmp
+      # Komga library directory
+      - ./data/komga:/komga
+      # Cache directory
+      - ./data/cache:/opt/manga-tool/cache
+      # Logs directory
+      - ./data/logs:/opt/manga-tool/logs
+    environment:
+      - REALDEBRID_API_KEY=
+      - MANGA_BASE_DIR=/manga
+      - TEMP_DIR=/tmp
+      - KOMGA_BASE_DIR=/komga
+      - CACHE_DIR=/opt/manga-tool/cache
+      - PORT=25000
+      # Komga Integration (leave empty to disable Komga support)
+      - KOMGA_URL=${KOMGA_URL:-}
+      - KOMGA_USERNAME=${KOMGA_USERNAME:-}
+      - KOMGA_PASSWORD=${KOMGA_PASSWORD:-}
+      - KOMGA_LIBRARIES=${KOMGA_LIBRARIES:-}
+      - KOMGA_REFRESH_ENABLED=${KOMGA_REFRESH_ENABLED:-true}
+    restart: unless-stopped
+
+volumes:
+  manga_data:
+    driver: local
+  temp_data:
+    driver: local
+  komga_data:
+    driver: local
+  cache_data:
+    driver: local
+  logs_data:
+    driver: local
