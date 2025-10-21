@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -16,7 +15,6 @@ import (
 	"manga-tool/cmd/manga-tool/utils"
 	"manga-tool/internal"
 	"manga-tool/internal/cache"
-	"manga-tool/internal/komga"
 	"manga-tool/internal/util"
 )
 
@@ -227,13 +225,8 @@ func (h *MangaHandler) ProcessHandler(w http.ResponseWriter, r *http.Request) {
 func (h *MangaHandler) startMetadataUpdateProcess(proc *internal.Process, _ ProcessFormData) {
 	h.Logger("INFO", fmt.Sprintf("Starting metadata update process: %s for %s", proc.ID, proc.Title))
 
-	// Create cancel channels
-	cancelChan := make(chan struct{})
-	forceCancelChan := make(chan struct{})
-
-	// Set up cancel functions
-	proc.CancelFunc = func() { close(cancelChan) }
-	proc.ForceCancel = func() { close(forceCancelChan) }
+	// Set up process cancellation
+	cancelChan, _ := setupProcessCancellation(proc)
 
 	// Start metadata update in a goroutine
 	go func() {
@@ -259,30 +252,17 @@ func (h *MangaHandler) startMetadataUpdateProcess(proc *internal.Process, _ Proc
 func (h *MangaHandler) startMangaProcessing(proc *internal.Process, formData ProcessFormData) {
 	h.Logger("INFO", fmt.Sprintf("Starting manga processing: %s for %s", proc.ID, proc.Title))
 
-	// Create cancel channels
-	cancelChan := make(chan struct{})
-	forceCancelChan := make(chan struct{})
-
-	// Set up cancel functions
-	proc.CancelFunc = func() { close(cancelChan) }
-	proc.ForceCancel = func() { close(forceCancelChan) }
+	// Set up process cancellation
+	cancelChan, forceCancelChan := setupProcessCancellation(proc)
 
 	// Initialize the prompt manager with the new process
-	initializePromptManager := func(process *internal.Process) {
-		if h.PromptManager != nil {
-			h.PromptManager.SetProcess(process)
-		}
-		h.Logger("INFO", fmt.Sprintf("Prompt manager initialized for process: %s", process.ID))
+	initializePromptManager := createPromptManagerInitializer(h.Logger)
+	if h.PromptManager != nil {
+		h.PromptManager.SetProcess(proc)
 	}
 
-	// Use the WebInput function
-	webInputFunc := h.WebInput
-	if webInputFunc == nil {
-		webInputFunc = func(processID, prompt, inputType string) string {
-			h.Logger("WARNING", "WebInput function not provided, using empty response")
-			return ""
-		}
-	}
+	// Get safe WebInput function
+	webInputFunc := getWebInputFunc(h.WebInput, h.Logger)
 
 	// Prepare data for the processor
 	threadData := map[string]interface{}{
@@ -306,20 +286,7 @@ func (h *MangaHandler) startMangaProcessing(proc *internal.Process, formData Pro
 		threadData,
 		cancelChan,
 		forceCancelChan,
-		processors.AppConfig{
-			MangaBaseDir:     appConfig.MangaBaseDir,
-			TempDir:          appConfig.TempDir,
-			PromptTimeout:    appConfig.PromptTimeout,
-			RealDebridAPIKey: appConfig.RealDebridAPIKey,
-			Komga: komga.Config{
-				URL:            appConfig.Komga.URL,
-				Username:       appConfig.Komga.Username,
-				Password:       appConfig.Komga.Password,
-				Libraries:      appConfig.Komga.Libraries,
-				RefreshEnabled: appConfig.Komga.RefreshEnabled,
-				Logger:         util.NewSimpleLogger(proc.ID, h.Logger),
-			},
-		},
+		convertToProcessorsAppConfig(appConfig, proc.ID, h.Logger),
 		h.ProcessManager,
 		proc.ID,
 		webInputFunc,
@@ -557,8 +524,7 @@ func (h *MangaHandler) ProcessDetailsHandler(w http.ResponseWriter, r *http.Requ
 
 	// Return details JSON for AJAX requests
 	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		respondJSON(w, map[string]interface{}{
 			"id":                  proc.ID,
 			"type":                proc.Type,
 			"title":               proc.Title,
@@ -580,7 +546,7 @@ func (h *MangaHandler) ProcessDetailsHandler(w http.ResponseWriter, r *http.Requ
 		"CurrentYear": time.Now().Year(),
 	}
 
-	h.Templates.ExecuteTemplate(w, "process_details.html", data)
+	renderTemplate(w, h.Templates, "process_details.html", data, h.Logger)
 }
 
 // ProcessCancelHandler cancels a process
@@ -610,10 +576,7 @@ func (h *MangaHandler) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Render template
-	if err := h.Templates.ExecuteTemplate(w, "index.html", data); err != nil {
-		h.Logger("ERROR", fmt.Sprintf("Error rendering template: %v", err))
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	renderTemplate(w, h.Templates, "index.html", data, h.Logger)
 }
 
 // ProcessesHandler renders the processes page
@@ -628,10 +591,7 @@ func (h *MangaHandler) ProcessesHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Render template
-	if err := h.Templates.ExecuteTemplate(w, "processes.html", data); err != nil {
-		h.Logger("ERROR", fmt.Sprintf("Error rendering template: %v", err))
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	renderTemplate(w, h.Templates, "processes.html", data, h.Logger)
 }
 
 // SubmitInputHandler handles user input submissions
@@ -661,8 +621,7 @@ func (h *MangaHandler) SubmitInputHandler(w http.ResponseWriter, r *http.Request
 	h.Logger("INFO", "Input submitted: "+input+" for prompt ID: "+promptID)
 
 	// Return success
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	respondJSONSuccess(w, nil)
 }
 
 // copyWithProgress copies a file with progress reporting

@@ -17,8 +17,6 @@ import (
 	"manga-tool/cmd/manga-tool/utils"
 	"manga-tool/internal"
 	"manga-tool/internal/cache"
-	"manga-tool/internal/komga"
-	"manga-tool/internal/util"
 )
 
 // MangaOperationHandler handles manga operations like warming cache, updating metadata, and deleting
@@ -59,8 +57,7 @@ func (h *MangaOperationHandler) FileSelectionHandler(w http.ResponseWriter, r *h
 	// TODO: session.Save(r, w)
 
 	// Return success
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	respondJSONSuccess(w, nil)
 }
 
 // ChapterTitlesHandler handles chapter title updates
@@ -89,8 +86,7 @@ func (h *MangaOperationHandler) ChapterTitlesHandler(w http.ResponseWriter, r *h
 	// TODO: session.Save(r, w)
 
 	// Return success
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	respondJSONSuccess(w, nil)
 }
 
 // SourceSelectionHandler handles source selection for manga
@@ -119,8 +115,7 @@ func (h *MangaOperationHandler) SourceSelectionHandler(w http.ResponseWriter, r 
 	// TODO: session.Save(r, w)
 
 	// Return success
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	respondJSONSuccess(w, nil)
 }
 
 // PromptResponseHandler handles responses to prompts
@@ -158,11 +153,7 @@ func (h *MangaOperationHandler) PromptResponseHandler(w http.ResponseWriter, r *
 
 	if targetProcess == nil {
 		h.Logger("WARNING", "No waiting process found for prompt response")
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"error":   "No waiting process found",
-		})
+		respondJSONError(w, http.StatusBadRequest, "No waiting process found")
 		return
 	}
 
@@ -192,8 +183,7 @@ func (h *MangaOperationHandler) PromptResponseHandler(w http.ResponseWriter, r *
 	}
 
 	// Return success
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	respondJSONSuccess(w, nil)
 }
 
 // ChaptersAPIHandler returns chapters for a manga
@@ -273,8 +263,7 @@ func (h *MangaOperationHandler) ChaptersAPIHandler(w http.ResponseWriter, r *htt
 		IsOneshot: isOneshot,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	respondJSON(w, response)
 }
 
 // ManageMangaHandler renders the manage manga page
@@ -300,10 +289,7 @@ func (h *MangaOperationHandler) ManageMangaHandler(w http.ResponseWriter, r *htt
 		"CurrentYear": time.Now().Year(),
 	}
 
-	if err := h.Templates.ExecuteTemplate(w, "manage_manga.html", data); err != nil {
-		h.Logger("ERROR", fmt.Sprintf("Error rendering template: %v", err))
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	renderTemplate(w, h.Templates, "manage_manga.html", data, h.Logger)
 }
 
 // UpdateMetadataHandler updates metadata for a manga
@@ -335,27 +321,14 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 		proc.Metadata["mangareader_url"] = mangareaderURL
 		proc.Metadata["mangadex_url"] = mangadexURL
 
-		// Create cancel channels
-		cancelChan := make(chan struct{})
-		forceCancelChan := make(chan struct{})
+		// Set up process cancellation
+		cancelChan, forceCancelChan := setupProcessCancellation(proc)
 
-		// Set up cancel functions
-		proc.CancelFunc = func() { close(cancelChan) }
-		proc.ForceCancel = func() { close(forceCancelChan) }
+		// Initialize the prompt manager
+		initializePromptManager := createPromptManagerInitializer(h.Logger)
 
-		// Initialize the prompt manager with the new process
-		initializePromptManager := func(process *internal.Process) {
-			h.Logger("INFO", fmt.Sprintf("Prompt manager initialized for metadata update process: %s", process.ID))
-		}
-
-		// Use the WebInput function
-		webInputFunc := h.WebInput
-		if webInputFunc == nil {
-			webInputFunc = func(processID, prompt, inputType string) string {
-				h.Logger("WARNING", "WebInput function not provided, using empty response")
-				return ""
-			}
-		}
+		// Get safe WebInput function
+		webInputFunc := getWebInputFunc(h.WebInput, h.Logger)
 
 		// Prepare data for ProcessManga - similar to normal processing but with update_metadata flag
 		threadData := map[string]interface{}{
@@ -377,21 +350,7 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 			threadData,
 			cancelChan,
 			forceCancelChan,
-			processors.AppConfig{
-				MangaBaseDir:     h.Config.MangaBaseDir,
-				TempDir:          h.Config.TempDir,
-				PromptTimeout:    h.Config.PromptTimeout,
-				RealDebridAPIKey: h.Config.RealDebridAPIKey,
-				Komga: komga.Config{
-					URL:            h.Config.Komga.URL,
-					Username:       h.Config.Komga.Username,
-					Password:       h.Config.Komga.Password,
-					Libraries:      h.Config.Komga.Libraries,
-					RefreshEnabled: h.Config.Komga.RefreshEnabled,
-					Logger:         util.NewSimpleLogger(proc.ID, h.Logger),
-				},
-				Parallelism: h.Config.Parallelism,
-			},
+			convertToProcessorsAppConfig(h.Config, proc.ID, h.Logger),
 			h.ProcessManager,
 			proc.ID,
 			webInputFunc,
@@ -401,10 +360,7 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 
 		// Return just the process ID as JSON for AJAX requests
 		if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]string{
-				"process_id": proc.ID,
-			})
+			respondJSON(w, map[string]string{"process_id": proc.ID})
 			return
 		}
 
@@ -416,9 +372,7 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 			"CurrentYear":     time.Now().Year(),
 		}
 
-		if err := h.Templates.ExecuteTemplate(w, "process.html", data); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		renderTemplate(w, h.Templates, "process.html", data, h.Logger)
 		return
 	}
 
@@ -477,9 +431,7 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 		"CachedIsOneshot":   cachedIsOneshot,
 	}
 
-	if err := h.Templates.ExecuteTemplate(w, "update_metadata.html", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	renderTemplate(w, h.Templates, "update_metadata.html", data, h.Logger)
 }
 
 // DeleteMangaHandler renders the delete manga confirmation page
@@ -569,55 +521,8 @@ func (h *MangaOperationHandler) ConfirmDeleteHandler(w http.ResponseWriter, r *h
 			// Proceed to Komga refresh
 			proc.Update(2, 2, "Refreshing Komga libraries")
 
-			// Get Komga configuration from environment if Config values are empty
-			komgaURL := h.Config.Komga.URL
-			komgaUsername := h.Config.Komga.Username
-			komgaPassword := h.Config.Komga.Password
-
-			// Read from environment if empty
-			if komgaURL == "" {
-				komgaURL = os.Getenv("KOMGA_URL")
-			}
-			if komgaUsername == "" {
-				komgaUsername = os.Getenv("KOMGA_USERNAME")
-			}
-			if komgaPassword == "" {
-				komgaPassword = os.Getenv("KOMGA_PASSWORD")
-			}
-
-			// Use configured Komga refresh setting
-			komgaRefreshEnabled := h.Config.Komga.RefreshEnabled
-
-			// Get libraries from environment or use default
-			var libraries []string
-			komgaLibraries := os.Getenv("KOMGA_LIBRARIES")
-			if komgaLibraries != "" {
-				libraries = strings.Split(komgaLibraries, ",")
-			} else if len(h.Config.Komga.Libraries) > 0 {
-				libraries = h.Config.Komga.Libraries
-			}
-			// If no libraries configured, leave empty to refresh all libraries
-
-			// Filter out empty libraries
-			filteredLibraries := make([]string, 0)
-			for _, lib := range libraries {
-				if strings.TrimSpace(lib) != "" {
-					filteredLibraries = append(filteredLibraries, lib)
-				}
-			}
-
-			h.Logger("INFO", fmt.Sprintf("Komga refresh configuration: URL=%s, Username=%s, Libraries=%v",
-				komgaURL, komgaUsername, filteredLibraries))
-
-			// Use direct configuration instead of relying on h.Config.Komga
-			komgaClient := komga.NewClient(&komga.Config{
-				URL:            komgaURL,
-				Username:       komgaUsername,
-				Password:       komgaPassword,
-				Libraries:      filteredLibraries,
-				RefreshEnabled: komgaRefreshEnabled,
-				Logger:         util.NewSimpleLogger(proc.ID, h.Logger),
-			})
+			// Create Komga client and refresh libraries
+			komgaClient := createKomgaClient(h.Config, proc.ID, h.Logger)
 
 			if komgaClient.RefreshAllLibraries() {
 				h.Logger("INFO", "Successfully refreshed Komga libraries")
@@ -631,10 +536,7 @@ func (h *MangaOperationHandler) ConfirmDeleteHandler(w http.ResponseWriter, r *h
 
 		// Return just the process ID as JSON for AJAX requests
 		if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]string{
-				"process_id": proc.ID,
-			})
+			respondJSON(w, map[string]string{"process_id": proc.ID})
 			return
 		}
 
@@ -680,9 +582,7 @@ func (h *MangaOperationHandler) ConfirmDeleteHandler(w http.ResponseWriter, r *h
 		"CurrentYear": time.Now().Year(),
 	}
 
-	if err := h.Templates.ExecuteTemplate(w, "confirm_delete.html", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	renderTemplate(w, h.Templates, "confirm_delete.html", data, h.Logger)
 }
 
 // DeleteFilesHandler handles selective deletion of manga files
@@ -766,55 +666,8 @@ func (h *MangaOperationHandler) DeleteFilesHandler(w http.ResponseWriter, r *htt
 			// Proceed to Komga refresh
 			proc.Update(len(filesToDelete)+1, len(filesToDelete)+1, "Refreshing Komga libraries")
 
-			// Get Komga configuration from environment if Config values are empty
-			komgaURL := h.Config.Komga.URL
-			komgaUsername := h.Config.Komga.Username
-			komgaPassword := h.Config.Komga.Password
-
-			// Read from environment if empty
-			if komgaURL == "" {
-				komgaURL = os.Getenv("KOMGA_URL")
-			}
-			if komgaUsername == "" {
-				komgaUsername = os.Getenv("KOMGA_USERNAME")
-			}
-			if komgaPassword == "" {
-				komgaPassword = os.Getenv("KOMGA_PASSWORD")
-			}
-
-			// Use configured Komga refresh setting
-			komgaRefreshEnabled := h.Config.Komga.RefreshEnabled
-
-			// Get libraries from environment or use default
-			var libraries []string
-			komgaLibraries := os.Getenv("KOMGA_LIBRARIES")
-			if komgaLibraries != "" {
-				libraries = strings.Split(komgaLibraries, ",")
-			} else if len(h.Config.Komga.Libraries) > 0 {
-				libraries = h.Config.Komga.Libraries
-			}
-			// If no libraries configured, leave empty to refresh all libraries
-
-			// Filter out empty libraries
-			filteredLibraries := make([]string, 0)
-			for _, lib := range libraries {
-				if strings.TrimSpace(lib) != "" {
-					filteredLibraries = append(filteredLibraries, lib)
-				}
-			}
-
-			h.Logger("INFO", fmt.Sprintf("Komga refresh configuration: URL=%s, Username=%s, Libraries=%v",
-				komgaURL, komgaUsername, filteredLibraries))
-
-			// Use direct configuration instead of relying on h.Config.Komga
-			komgaClient := komga.NewClient(&komga.Config{
-				URL:            komgaURL,
-				Username:       komgaUsername,
-				Password:       komgaPassword,
-				Libraries:      filteredLibraries,
-				RefreshEnabled: komgaRefreshEnabled,
-				Logger:         util.NewSimpleLogger(proc.ID, h.Logger),
-			})
+			// Create Komga client and refresh libraries
+			komgaClient := createKomgaClient(h.Config, proc.ID, h.Logger)
 
 			if komgaClient.RefreshAllLibraries() {
 				h.Logger("INFO", "Successfully refreshed Komga libraries")
@@ -830,10 +683,7 @@ func (h *MangaOperationHandler) DeleteFilesHandler(w http.ResponseWriter, r *htt
 
 		// Return just the process ID as JSON for AJAX requests
 		if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]string{
-				"process_id": proc.ID,
-			})
+			respondJSON(w, map[string]string{"process_id": proc.ID})
 			return
 		}
 
@@ -857,9 +707,7 @@ func (h *MangaOperationHandler) DeleteFilesHandler(w http.ResponseWriter, r *htt
 		"Year":       time.Now().Year(),
 	}
 
-	if err := h.Templates.ExecuteTemplate(w, "delete_files.html", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	renderTemplate(w, h.Templates, "delete_files.html", data, h.Logger)
 }
 
 // getFiles recursively gets all files in a directory
@@ -935,27 +783,16 @@ func (h *MangaOperationHandler) StatusHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// Return as JSON
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.Logger("ERROR", fmt.Sprintf("Error encoding process status: %v", err))
-		http.Error(w, "Error generating JSON", http.StatusInternalServerError)
-	}
+	respondJSON(w, response)
 }
 
 // LogsHandler returns logs since a given sequence number
 // DEPRECATED: Logs are now output to Docker stdout only
 func (h *MangaOperationHandler) LogsHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	// Return empty logs array - logs are now in Docker container only
-	response := map[string]interface{}{
+	respondJSON(w, map[string]interface{}{
 		"logs": []map[string]interface{}{},
-	}
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.Logger("ERROR", fmt.Sprintf("Error encoding logs JSON: %v", err))
-		http.Error(w, "Error generating JSON", http.StatusInternalServerError)
-	}
+	})
 }
 
 // ProcessesAPIHandler returns processes as JSON for AJAX calls
@@ -1008,15 +845,9 @@ func (h *MangaOperationHandler) ProcessesAPIHandler(w http.ResponseWriter, r *ht
 	}
 
 	// Return as JSON
-	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
+	respondJSON(w, map[string]interface{}{
 		"processes": responseProcesses,
-	}
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.Logger("ERROR", fmt.Sprintf("Error encoding processes JSON: %v", err))
-		http.Error(w, "Error generating JSON", http.StatusInternalServerError)
-	}
+	})
 }
 
 // ProcessCancelHandler cancels a process
@@ -1049,8 +880,7 @@ func (h *MangaOperationHandler) ProcessCancelHandler(w http.ResponseWriter, r *h
 
 	// Return JSON response for AJAX requests
 	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+		respondJSONSuccess(w, nil)
 		return
 	}
 
@@ -1074,11 +904,7 @@ func (h *MangaOperationHandler) ProcessRerunHandler(w http.ResponseWriter, r *ht
 	originalProc, exists := h.ProcessManager.GetProcess(processID)
 	if !exists {
 		h.Logger("ERROR", fmt.Sprintf("Process not found for rerun: %s", processID))
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"error":   "Process not found",
-		})
+		respondJSONError(w, http.StatusNotFound, "Process not found")
 		return
 	}
 
@@ -1100,26 +926,13 @@ func (h *MangaOperationHandler) ProcessRerunHandler(w http.ResponseWriter, r *ht
 		}
 
 		// Create cancel channels
-		cancelChan := make(chan struct{})
-		forceCancelChan := make(chan struct{})
-
-		// Set up cancel functions
-		newProc.CancelFunc = func() { close(cancelChan) }
-		newProc.ForceCancel = func() { close(forceCancelChan) }
+		cancelChan, forceCancelChan := setupProcessCancellation(newProc)
 
 		// Initialize the prompt manager
-		initializePromptManager := func(process *internal.Process) {
-			h.Logger("INFO", fmt.Sprintf("Prompt manager initialized for metadata update process: %s", process.ID))
-		}
+		initializePromptManager := createPromptManagerInitializer(h.Logger)
 
-		// Use the WebInput function
-		webInputFunc := h.WebInput
-		if webInputFunc == nil {
-			webInputFunc = func(processID, prompt, inputType string) string {
-				h.Logger("WARNING", "WebInput function not provided, using empty response")
-				return ""
-			}
-		}
+		// Get safe WebInput function
+		webInputFunc := getWebInputFunc(h.WebInput, h.Logger)
 
 		// Prepare data for ProcessManga
 		threadData := map[string]interface{}{
@@ -1141,21 +954,7 @@ func (h *MangaOperationHandler) ProcessRerunHandler(w http.ResponseWriter, r *ht
 			threadData,
 			cancelChan,
 			forceCancelChan,
-			processors.AppConfig{
-				MangaBaseDir:     h.Config.MangaBaseDir,
-				TempDir:          h.Config.TempDir,
-				PromptTimeout:    h.Config.PromptTimeout,
-				RealDebridAPIKey: h.Config.RealDebridAPIKey,
-				Komga: komga.Config{
-					URL:            h.Config.Komga.URL,
-					Username:       h.Config.Komga.Username,
-					Password:       h.Config.Komga.Password,
-					Libraries:      h.Config.Komga.Libraries,
-					RefreshEnabled: h.Config.Komga.RefreshEnabled,
-					Logger:         util.NewSimpleLogger(newProc.ID, h.Logger),
-				},
-				Parallelism: h.Config.Parallelism,
-			},
+			convertToProcessorsAppConfig(h.Config, newProc.ID, h.Logger),
 			h.ProcessManager,
 			newProc.ID,
 			webInputFunc,
@@ -1173,9 +972,7 @@ func (h *MangaOperationHandler) ProcessRerunHandler(w http.ResponseWriter, r *ht
 	}
 
 	// Return success response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":     true,
+	respondJSONSuccess(w, map[string]interface{}{
 		"processId":   newProc.ID,
 		"originalId":  processID,
 		"processType": string(newProc.Type),
@@ -1198,22 +995,14 @@ func (h *MangaOperationHandler) ProcessDeleteHandler(w http.ResponseWriter, r *h
 	proc, exists := h.ProcessManager.GetProcess(processID)
 	if !exists {
 		h.Logger("ERROR", fmt.Sprintf("Process not found for deletion: %s", processID))
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"error":   "Process not found",
-		})
+		respondJSONError(w, http.StatusNotFound, "Process not found")
 		return
 	}
 
 	// Don't allow deleting running processes
 	if proc.Status == internal.ProcessStatusRunning {
 		h.Logger("ERROR", fmt.Sprintf("Cannot delete running process: %s", processID))
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"error":   "Cannot delete a running process",
-		})
+		respondJSONError(w, http.StatusBadRequest, "Cannot delete a running process")
 		return
 	}
 
@@ -1221,28 +1010,20 @@ func (h *MangaOperationHandler) ProcessDeleteHandler(w http.ResponseWriter, r *h
 	success := h.ProcessManager.DeleteProcess(processID)
 	if !success {
 		h.Logger("ERROR", fmt.Sprintf("Failed to delete process: %s", processID))
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"error":   "Failed to delete process",
-		})
+		respondJSONError(w, http.StatusInternalServerError, "Failed to delete process")
 		return
 	}
 
 	h.Logger("INFO", fmt.Sprintf("Process %s deleted from history", processID))
 
 	// Return success response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-	})
+	respondJSONSuccess(w, nil)
 }
 
 // executeDeleteProcess handles the execution of a delete process
 func (h *MangaOperationHandler) executeDeleteProcess(proc *internal.Process, mangaTitle string) {
-	// Create cancel channels
-	cancelChan := make(chan struct{})
-	forceCancelChan := make(chan struct{})
+	// Set up process cancellation
+	setupProcessCancellation(proc)
 
 	// Process cleanup when finished
 	defer func() {
@@ -1251,10 +1032,6 @@ func (h *MangaOperationHandler) executeDeleteProcess(proc *internal.Process, man
 			h.ProcessManager.FailProcess(proc.ID, fmt.Sprintf("Panic: %v", r))
 		}
 	}()
-
-	// Set the cancel functions
-	proc.CancelFunc = func() { close(cancelChan) }
-	proc.ForceCancel = func() { close(forceCancelChan) }
 
 	// Get path
 	mangaPath := filepath.Join(h.Config.MangaBaseDir, mangaTitle)
@@ -1280,9 +1057,8 @@ func (h *MangaOperationHandler) executeDeleteProcess(proc *internal.Process, man
 
 // executeProcessOperation handles the execution of a manga process operation
 func (h *MangaOperationHandler) executeProcessOperation(proc *internal.Process, mangaTitle string) {
-	// Create cancel channels
-	cancelChan := make(chan struct{})
-	forceCancelChan := make(chan struct{})
+	// Set up process cancellation
+	cancelChan, forceCancelChan := setupProcessCancellation(proc)
 
 	// Process cleanup when finished
 	defer func() {
@@ -1291,10 +1067,6 @@ func (h *MangaOperationHandler) executeProcessOperation(proc *internal.Process, 
 			h.ProcessManager.FailProcess(proc.ID, fmt.Sprintf("Panic: %v", r))
 		}
 	}()
-
-	// Set the cancel functions
-	proc.CancelFunc = func() { close(cancelChan) }
-	proc.ForceCancel = func() { close(forceCancelChan) }
 
 	// Check for cancellation before starting
 	select {
