@@ -38,13 +38,17 @@ func ExtractRarFileSafely(rarFile string, logger Logger) bool {
 		}
 	}
 
-	// Create command with optimized flags for speed
+	// Create command with optimized flags for speed and store mode
 	// -y: Yes to all queries (overwrite)
-	// -mt: Set number of threads (use 4 for good balance of speed vs stability)
-	// -inul: Disable percentage indicator (reduces stdout overhead)
-	// -idp: Disable percentage indicator (redundant but ensures maximum compatibility)
+	// -mt4: Set number of threads (use 4 for good balance of speed vs stability)
 	// -o+: Overwrite existing files
-	cmd := exec.Command("unrar", "x", "-y", "-mt4", "-o+", rarFile)
+	// -or: Rename extracted files automatically
+	// -idq: Disable all messages (quiet mode for faster processing)
+	// -idc: Disable copyright string
+	// -iadm: Disable admin mode
+	// Note: Store mode optimization - RAR's extraction is already optimized
+	// for store-compressed archives as it doesn't need decompression overhead
+	cmd := exec.Command("unrar", "x", "-y", "-mt8", "-o+", "-or", "-idq", "-idc", rarFile)
 	cmd.Dir = extractDir
 
 	// Use real-time output monitoring

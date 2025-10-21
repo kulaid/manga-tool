@@ -561,13 +561,10 @@ func createCBZ(sourceDir, outputPath string) error {
 				}
 				header.Name = filepath.ToSlash(relPath)
 
-				// Images are already compressed - use Store method
-				if isImageFile(filePath) {
-					header.Method = zip.Store
-				} else {
-					// For other files like ComicInfo.xml, use compression
-					header.Method = zip.Deflate
-				}
+				// Use Store (no compression) for all files in CBZ
+				// Images are already compressed, and XML files are tiny
+				// Store mode is optimal for manga readers and faster processing
+				header.Method = zip.Store
 
 				// Acquire lock, create entry, and write content
 				zipMutex.Lock()
@@ -1278,7 +1275,7 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 			zw := zip.NewWriter(w)
 			defer zw.Close()
 
-			// First, add ComicInfo.xml
+			// First, add ComicInfo.xml with Store method (no compression)
 			comicInfoContent, err := os.ReadFile(comicInfoPath)
 			if err != nil {
 				return fmt.Errorf("error reading ComicInfo.xml: %v", err)
@@ -1286,7 +1283,7 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 
 			comicInfoHeader := &zip.FileHeader{
 				Name:     "ComicInfo.xml",
-				Method:   zip.Deflate,
+				Method:   zip.Store, // Use Store mode for consistency and speed
 				Modified: time.Now(),
 			}
 
@@ -1311,7 +1308,8 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 					return fmt.Errorf("error creating file header: %v", err)
 				}
 				header.Name = f.Name
-				header.Method = f.Method
+				// Force Store mode for all files to ensure CBZ is uncompressed
+				header.Method = zip.Store
 
 				// Create the file entry
 				writer, err := zw.CreateHeader(header)
