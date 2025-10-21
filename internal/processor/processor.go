@@ -956,6 +956,42 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config, i
 					chapterTitle = fmt.Sprintf("Chapter %g", chapterNum)
 				}
 
+				// Extract volume number from image filenames (overrides parent ZIP volume number)
+				// Accepts patterns like (v01), v01, v01.5, vEX, v1a, volume 1.5, etc.
+				var extractedVolStr string
+				volPatterns := []*regexp.Regexp{
+					regexp.MustCompile(`(?i)\(v([\d]+(?:\.[\d]+)?[a-zA-Z]*)\)`),     // (v01), (v01.5), (v1a)
+					regexp.MustCompile(`(?i)v([\d]+(?:\.[\d]+)?[a-zA-Z]*)`),         // v01, v01.5, v1a, vEX
+					regexp.MustCompile(`(?i)volume\s+([\d]+(?:\.[\d]+)?[a-zA-Z]*)`), // volume 1, volume 1.5, volume EX
+				}
+				for _, imgPath := range imagePaths {
+					imgBaseName := filepath.Base(imgPath)
+					for _, pat := range volPatterns {
+						if match := pat.FindStringSubmatch(imgBaseName); len(match) > 1 {
+							extractedVolStr = match[1]
+							break
+						}
+					}
+					if extractedVolStr != "" {
+						break
+					}
+				}
+				// Override parent volume number if we found one in the image filenames
+				if extractedVolStr != "" {
+					// Try to parse as int, else fallback to string for filename
+					if num, err := strconv.Atoi(extractedVolStr); err == nil {
+						if num != volNum && logger != nil {
+							logger.Info(fmt.Sprintf("Chapter %g: Using volume number %d from image filenames (parent ZIP indicated volume %d)", chapterNum, num, volNum))
+						}
+						volNum = num
+					} else {
+						if logger != nil {
+							logger.Info(fmt.Sprintf("Chapter %g: Using volume string '%s' from image filenames (parent ZIP indicated volume %d)", chapterNum, extractedVolStr, volNum))
+						}
+						// Use extractedVolStr for filename formatting below if needed
+					}
+				}
+
 				// Generate filename using the new helper function
 				chapterFilename := generateChapterFilename(seriesName, chapterNum, volNum, chapterTitle, isOneshot)
 				destPath := filepath.Join(outputDir, chapterFilename)
@@ -965,26 +1001,6 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config, i
 						doublePages = true
 						break
 					}
-				}
-
-				// Extract volume number from image filenames (overrides parent ZIP volume number)
-				// This handles cases where the ZIP filename doesn't have proper volume info
-				// but the individual images do (e.g., "One Piece - c1000 (v099) - p001.png")
-				extractedVolNum := 0
-				for _, imgPath := range imagePaths {
-					imgBaseName := filepath.Base(imgPath)
-					imgVolNum := extractVolumeNumber(imgBaseName)
-					if imgVolNum > 0 {
-						extractedVolNum = imgVolNum
-						break // Use the first valid volume number found
-					}
-				}
-				// Override parent volume number if we found one in the image filenames
-				if extractedVolNum > 0 {
-					if extractedVolNum != volNum && logger != nil {
-						logger.Info(fmt.Sprintf("Chapter %g: Using volume number %d from image filenames (parent ZIP indicated volume %d)", chapterNum, extractedVolNum, volNum))
-					}
-					volNum = extractedVolNum
 				}
 
 				// Create metadata
