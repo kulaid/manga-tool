@@ -112,7 +112,7 @@ func (c *Client) Login() error {
 	// Check for cookies as indication of successful login
 	madokamiURL, _ := url.Parse("https://madokami.al")
 	cookies := c.cookieJar.Cookies(madokamiURL)
-	
+
 	if len(cookies) > 0 {
 		// Check if we got a session cookie
 		for _, cookie := range cookies {
@@ -194,12 +194,12 @@ func (c *Client) GetCookieString() string {
 
 	madokamiURL, _ := url.Parse("https://madokami.al")
 	cookies := c.cookieJar.Cookies(madokamiURL)
-	
+
 	var cookieStrings []string
 	for _, cookie := range cookies {
 		cookieStrings = append(cookieStrings, fmt.Sprintf("%s=%s", cookie.Name, cookie.Value))
 	}
-	
+
 	return strings.Join(cookieStrings, "; ")
 }
 
