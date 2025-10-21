@@ -621,7 +621,7 @@ func copyFile(src, dst string) error {
 }
 
 // ProcessVolumeFile processes a volume file by extracting chapters
-func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config) error {
+func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config, isOneshot bool) error {
 	logger := config.Logger
 	baseName := filepath.Base(filePath)
 	startTime := time.Now()
@@ -956,32 +956,9 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config) e
 					chapterTitle = fmt.Sprintf("Chapter %g", chapterNum)
 				}
 
-				// Create chapter filename - simple format without volume numbers
-				// Format: {series title} - {chapter number}.cbz
-				// Use 4-digit zero-padded integer, with decimal part if present (e.g., 0058.1.cbz, 0100.15.cbz)
-				var chapterFilename string
-				intPart := int(chapterNum)
-				fracPart := chapterNum - float64(intPart)
-				if fracPart > 0.001 { // Use small epsilon to avoid floating point errors
-					// Has fractional part - format the full number then extract decimal part
-					fullStr := fmt.Sprintf("%.10f", chapterNum) // Use enough precision
-					// Remove trailing zeros and find decimal point
-					fullStr = strings.TrimRight(fullStr, "0")
-					fullStr = strings.TrimRight(fullStr, ".")
-					// Extract just the decimal part after the dot
-					parts := strings.Split(fullStr, ".")
-					if len(parts) == 2 {
-						chapterFilename = fmt.Sprintf("V%03d Ch%04d %s.%s.cbz", volNum, intPart, chapterTitle, parts[1])
-					} else {
-						// Shouldn't happen, but fallback
-						chapterFilename = fmt.Sprintf("V%03d Ch%04d %s.cbz", volNum, intPart, chapterTitle)
-					}
-				} else {
-					// No fractional part (e.g., 58 -> "0058.cbz")
-					chapterFilename = fmt.Sprintf("V%03d Ch%04d %s.cbz", volNum, intPart, chapterTitle)
-				}
-
-				destPath := filepath.Join(outputDir, chapterFilename) // Check for double-page spread
+				// Generate filename using the new helper function
+				chapterFilename := generateChapterFilename(seriesName, chapterNum, volNum, chapterTitle, isOneshot)
+				destPath := filepath.Join(outputDir, chapterFilename)
 				doublePages := false
 				for _, path := range imagePaths {
 					if doublePageRegex.MatchString(filepath.Base(path)) {
@@ -1134,7 +1111,7 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 	}
 
 	// Clean series name for filesystem
-	cleanSeries := sanitizeForFilesystem(seriesName)
+	// cleanSeries := sanitizeForFilesystem(seriesName)
 
 	// Determine chapter title early if available in config (will be used for output filename)
 	var chapterTitle string
@@ -1154,37 +1131,7 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 	// Create output filename
 	var outputFilename string
 	if fileType == "chapter" {
-		// Handle oneshot special case - use simple filename
-		if config.IsOneshot {
-			// For oneshots, use simple format: just the series name
-			outputFilename = fmt.Sprintf("%s.cbz", cleanSeries)
-		} else {
-			// Format: {series title} - {chapter number}.cbz
-			// Use 4-digit zero-padded integer, with decimal part if present (e.g., 0058.1.cbz, 0100.15.cbz)
-			intPart := int(chapterNum)
-			fracPart := chapterNum - float64(intPart)
-			if fracPart > 0.001 { // Use small epsilon to avoid floating point errors
-				// Has fractional part - format the full number then extract decimal part
-				fullStr := fmt.Sprintf("%.10f", chapterNum) // Use enough precision
-				// Remove trailing zeros and find decimal point
-				fullStr = strings.TrimRight(fullStr, "0")
-				fullStr = strings.TrimRight(fullStr, ".")
-				// Extract just the decimal part after the dot
-				parts := strings.Split(fullStr, ".")
-				if len(parts) == 2 {
-					outputFilename = fmt.Sprintf("%s - %04d.%s.cbz", cleanSeries, intPart, parts[1])
-				} else {
-					// Shouldn't happen, but fallback
-					outputFilename = fmt.Sprintf("%s - %04d.cbz", cleanSeries, intPart)
-				}
-			} else {
-				// No fractional part (e.g., 58 -> "0058.cbz")
-				outputFilename = fmt.Sprintf("%s - %04d.cbz", cleanSeries, intPart)
-			}
-		}
-	} else {
-		// Format: {series title} - Vol {volume number with 4 digits}.cbz
-		outputFilename = fmt.Sprintf("%s - Vol %04d.cbz", cleanSeries, volumeNumber)
+		outputFilename = generateChapterFilename(seriesName, chapterNum, volumeNumber, chapterTitle, config.IsOneshot)
 	}
 
 	// Create output path
@@ -1669,6 +1616,34 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 	return nil
 }
 
+// generateChapterFilename creates a standardized filename for a chapter.
+// Format: "V<vol_num> Ch<ch_num> <title>.cbz"
+// Example: "V001 Ch0058 My Chapter Title.cbz"
+func generateChapterFilename(seriesName string, chapterNum float64, volNum int, chapterTitle string, isOneshot bool) string {
+	if isOneshot {
+		return fmt.Sprintf("%s.cbz", sanitizeForFilesystem(seriesName))
+	}
+
+	intPart := int(chapterNum)
+	fracPart := chapterNum - float64(intPart)
+	cleanTitle := sanitizeForFilesystem(chapterTitle)
+
+	if fracPart > 0.001 { // Use a small epsilon to avoid floating point errors
+		// Has a fractional part (e.g., 58.1)
+		fullStr := strings.TrimRight(fmt.Sprintf("%.10f", chapterNum), "0")
+		fullStr = strings.TrimRight(fullStr, ".")
+		parts := strings.Split(fullStr, ".")
+		if len(parts) == 2 { // e.g., "58.1"
+			return fmt.Sprintf("V%03d Ch%04d.%s %s.cbz", volNum, intPart, parts[1], cleanTitle)
+		}
+		// Fallback for unexpected fractional format
+		return fmt.Sprintf("V%03d Ch%04g %s.cbz", volNum, chapterNum, cleanTitle)
+	}
+
+	// No fractional part (e.g., 58)
+	return fmt.Sprintf("V%03d Ch%04d %s.cbz", volNum, intPart, cleanTitle)
+}
+
 // ProcessBatch processes a batch of files
 func ProcessBatch(files []string, seriesName, outputDir string, config *Config) error {
 	if len(files) == 0 {
@@ -1772,13 +1747,6 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 
 				// Process volume
 				startTime := time.Now()
-				if err := ProcessVolumeFile(filePath, outputDir, seriesName, config); err != nil {
-					mu.Lock()
-					errorCount++
-					mu.Unlock()
-					logger.Error(fmt.Sprintf("Error processing volume file %s: %v", baseName, err))
-					return
-				}
 
 				duration := time.Since(startTime).Round(time.Second)
 				logger.Info(fmt.Sprintf("Completed volume %d/%d: %s in %v", idx+1, len(volumes), baseName, duration))
