@@ -323,7 +323,7 @@ func downloadMadokamiFilesWithLimit(client *madokami.Client, fileURLs []string, 
 	// Create a progress reporter that logs download speed
 	progressReporter := &madokamiProgressReporter{logger: logger}
 	client.SetProgressReporter(progressReporter)
-	
+
 	// Download files sequentially since each file uses 3 parallel chunks
 	for i, fileURL := range fileURLs {
 		if logger != nil {
@@ -358,15 +358,15 @@ func (mpr *madokamiProgressReporter) ReportProgress(downloaded int64, total int6
 	if mpr.logger == nil {
 		return
 	}
-	
+
 	percentage := 0
 	if total > 0 {
 		percentage = int((downloaded * 100) / total)
 	}
-	
+
 	// Format speed
 	speedStr := formatBytesPerSecond(speed)
-	
+
 	// Log progress with speed
 	mpr.logger.Info(fmt.Sprintf("PROGRESS: %d%% (%s / %s) - %s",
 		percentage,

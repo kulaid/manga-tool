@@ -47,7 +47,7 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 	n, err := pw.writer.Write(p)
 	if n > 0 {
 		atomic.AddInt64(&pw.downloaded, int64(n))
-		
+
 		// Report progress every 500ms to avoid too many updates
 		now := time.Now()
 		if pw.reporter != nil && now.Sub(pw.lastReported) > 500*time.Millisecond {
@@ -425,13 +425,13 @@ func (c *Client) downloadFileChunked(fileURL, destPath string, totalSize int64) 
 		if c.progressReporter == nil {
 			return
 		}
-		
+
 		progressMu.Lock()
 		defer progressMu.Unlock()
-		
+
 		totalDownloaded += bytesAdded
 		now := time.Now()
-		
+
 		// Report every 500ms to avoid too many updates
 		if now.Sub(lastReported) > 500*time.Millisecond {
 			elapsed := now.Sub(startTime).Seconds()
@@ -545,7 +545,7 @@ func (c *Client) downloadChunkWithProgress(fileURL, destPath string, start, end 
 	} else {
 		_, err = io.Copy(outFile, resp.Body)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to write chunk: %v", err)
 	}
