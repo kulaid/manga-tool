@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"manga-tool/internal/madokami"
 	"manga-tool/internal/realdebrid"
 )
 
@@ -333,26 +333,29 @@ func DownloadFile(downloadURL, destDir, username, password, realdebridAPIKey, ma
 		return err
 	}
 
-	// Check if this is a Madokami link and inject credentials if available
-	if strings.Contains(downloadURL, "madokami.al") && madokamiUsername != "" && madokamiPassword != "" {
+	var cookieHeader string
+
+	// Check if this is a Madokami link and login to get session cookie
+	if madokami.IsMadokamiURL(downloadURL) && madokamiUsername != "" && madokamiPassword != "" {
 		if logger != nil {
-			logger.Info("Detected Madokami link, injecting authentication credentials")
+			logger.Info("Detected Madokami link, using cached session or logging in")
 		}
 
-		// Parse the URL
-		parsedURL, err := url.Parse(downloadURL)
-		if err == nil {
-			// Inject credentials into the URL
-			parsedURL.User = url.UserPassword(madokamiUsername, madokamiPassword)
-			downloadURL = parsedURL.String()
-			if logger != nil {
-				// Log without showing password
-				logger.Info("Madokami credentials injected into URL")
-			}
-		} else {
-			if logger != nil {
-				logger.Warning(fmt.Sprintf("Failed to parse Madokami URL: %v", err))
-			}
+		// Get singleton Madokami client (will reuse existing or create new)
+		client, err := madokami.GetClient(madokamiUsername, madokamiPassword)
+		if err != nil {
+			return fmt.Errorf("failed to get Madokami client: %v", err)
+		}
+
+		// Login if not already logged in (will skip if already logged in)
+		if err := client.Login(); err != nil {
+			return fmt.Errorf("failed to login to Madokami: %v", err)
+		}
+
+		// Get cookie string for wget
+		cookieHeader = client.GetCookieString()
+		if logger != nil {
+			logger.Info("Madokami session ready, obtained cookie for download")
 		}
 	}
 
@@ -425,6 +428,11 @@ func DownloadFile(downloadURL, destDir, username, password, realdebridAPIKey, ma
 		"-c",      // Continue partially downloaded files
 		"-t", "3", // Retry 3 times
 		"--directory-prefix=" + destDir, // Download to this directory
+	}
+
+	// Add Madokami cookie if available
+	if cookieHeader != "" {
+		args = append(args, "--header=Cookie: "+cookieHeader)
 	}
 
 	// Add authentication if provided
