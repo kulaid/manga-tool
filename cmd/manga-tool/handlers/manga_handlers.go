@@ -404,11 +404,11 @@ func copyWithProgress(dst io.Writer, src io.Reader, size int64) (int64, error) {
 	// Use a 32KB buffer for efficient copying
 	bufSize := 32 * 1024
 	buf := make([]byte, bufSize)
-	
+
 	var written int64
 	var lastReported int64
 	reportInterval := int64(1024 * 1024) // Report every 1MB
-	
+
 	for {
 		nr, err := src.Read(buf)
 		if nr > 0 {
@@ -422,7 +422,7 @@ func copyWithProgress(dst io.Writer, src io.Reader, size int64) (int64, error) {
 			if nr != nw {
 				return written, io.ErrShortWrite
 			}
-			
+
 			// Report progress at intervals
 			if size > 0 && written-lastReported >= reportInterval {
 				lastReported = written
@@ -436,6 +436,6 @@ func copyWithProgress(dst io.Writer, src io.Reader, size int64) (int64, error) {
 			return written, err
 		}
 	}
-	
+
 	return written, nil
 }
