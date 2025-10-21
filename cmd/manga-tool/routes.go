@@ -60,13 +60,12 @@ func RegisterRoutes(r *mux.Router, ctx *AppContext) {
 		r.HandleFunc(route.Path, route.Handler).Methods(route.Methods...)
 	}
 
-	// Static file handling with cache busting
+	// Static file handling with proper caching
+	// We use versioned URLs (?v=2) for cache busting when needed
 	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("static")))
 	r.PathPrefix("/static/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Disable all caching for static files
-		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0")
-		w.Header().Set("Pragma", "no-cache")
-		w.Header().Set("Expires", "0")
+		// Allow caching for 1 hour - use versioned URLs (?v=X) for cache busting
+		w.Header().Set("Cache-Control", "public, max-age=3600")
 		staticHandler.ServeHTTP(w, r)
 	}))
 }
