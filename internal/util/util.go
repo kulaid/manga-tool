@@ -2,7 +2,6 @@ package util
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -133,61 +132,6 @@ func IsArchive(filename string) bool {
 	lowerName := strings.ToLower(filename)
 	// Add other archive types if needed
 	return IsZipFile(filename) || IsRarFile(filename) || strings.HasSuffix(lowerName, ".7z")
-}
-
-// IsMangaDirectory checks if a directory is a subdirectory of any of the manga base directories.
-func IsMangaDirectory(path string, mangaDirs []string) bool {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return false
-	}
-
-	for _, mangaDir := range mangaDirs {
-		absMangaDir, err := filepath.Abs(mangaDir)
-		if err != nil {
-			continue
-		}
-		if strings.HasPrefix(absPath, absMangaDir) {
-			return true
-		}
-	}
-	return false
-}
-
-// ContainsManga checks if a directory contains any manga files.
-func ContainsManga(dir string) (bool, error) {
-	var foundManga bool
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() && IsMangaFile(info.Name()) {
-			foundManga = true
-			return filepath.SkipDir // Stop walking once a manga file is found
-		}
-		return nil
-	})
-	return foundManga, err
-}
-
-// IsHidden checks if a file or directory is hidden (starts with a dot).
-func IsHidden(path string) bool {
-	return filepath.Base(path)[0] == '.'
-}
-
-// ShouldIgnore checks if a file or directory should be ignored.
-func ShouldIgnore(name string) bool {
-	return name == "@eaDir" || name == ".DS_Store" || name == "Thumbs.db"
-}
-
-// Walk is a wrapper around filepath.Walk.
-func Walk(root string, walkFn func(path string, isDir bool) error) error {
-	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		return walkFn(path, info.IsDir())
-	})
 }
 
 // SanitizePath sanitizes a path by replacing invalid characters.
@@ -717,26 +661,6 @@ func AskToDeleteFilesWithWebInput(directory string, logger Logger, webInput WebI
 	return nil
 }
 
-// SaveJSON saves data to a JSON file
-func SaveJSON(filename string, data interface{}) error {
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(filename, jsonData, 0644)
-}
-
-// LoadJSON loads data from a JSON file
-func LoadJSON(filename string, data interface{}) error {
-	jsonData, err := os.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-
-	return json.Unmarshal(jsonData, data)
-}
-
 // CopyFile copies a file from src to dst
 func CopyFile(src, dst string) error {
 	srcFile, err := os.Open(src)
@@ -759,41 +683,16 @@ func CopyFile(src, dst string) error {
 	return dstFile.Sync()
 }
 
-// CheckUbuntuDependencies verifies all required command-line tools are installed
-func CheckUbuntuDependencies(logger Logger) bool {
-	required := []string{"unp", "unrar", "7z", "wget", "find"}
-	allGood := true
-
-	for _, cmd := range required {
-		_, err := exec.LookPath(cmd)
-		if err != nil {
-			if logger != nil {
-				logger.Error(fmt.Sprintf("Required tool '%s' is not installed", cmd))
-				switch cmd {
-				case "unp":
-					logger.Info("Install with: sudo apt-get install unp")
-				case "unrar":
-					logger.Info("Install with: sudo apt-get install unrar")
-				case "7z":
-					logger.Info("Install with: sudo apt-get install p7zip-full")
-				case "wget":
-					logger.Info("Install with: sudo apt-get install wget")
-				}
-			}
-			allGood = false
-		}
-	}
-
-	return allGood
-}
-
 // DirExists checks if a directory exists
 func DirExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
 }
 
-// GetDirPermissions returns the permissions of a directory
+// GetDirPermissions returns the permissions of a directory as a string
 func GetDirPermissions(path string) string {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -972,16 +871,6 @@ func DeleteFileWithRetry(path string, maxRetries int, logger Logger) error {
 	return fmt.Errorf("failed to delete file after %d attempts: %v", maxRetries, lastErr)
 }
 
-// GetEnvInt retrieves an environment variable as an integer or returns a default value
-func GetEnvInt(key string, defaultValue int) int {
-	if value, exists := os.LookupEnv(key); exists {
-		if intValue, err := strconv.Atoi(value); err == nil {
-			return intValue
-		}
-	}
-	return defaultValue
-}
-
 // GetEnv retrieves an environment variable or returns a default value
 func GetEnv(key, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
@@ -990,11 +879,11 @@ func GetEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
-// GetEnvBool retrieves an environment variable as a boolean or returns a default value
-func GetEnvBool(key string, defaultValue bool) bool {
+// GetEnvInt retrieves an environment variable as an integer or returns a default value
+func GetEnvInt(key string, defaultValue int) int {
 	if value, exists := os.LookupEnv(key); exists {
-		if boolValue, err := strconv.ParseBool(value); err == nil {
-			return boolValue
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
 		}
 	}
 	return defaultValue

@@ -17,6 +17,7 @@ import (
 	"manga-tool/cmd/manga-tool/utils"
 	"manga-tool/internal"
 	"manga-tool/internal/cache"
+	"manga-tool/internal/util"
 )
 
 // MangaOperationHandler handles manga operations like warming cache, updating metadata, and deleting
@@ -378,7 +379,7 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 
 	// For GET requests, find CBZ files and show the update form
 	mangaPath := filepath.Join(h.Config.MangaBaseDir, mangaTitle)
-	files, err := utils.FindCBZFilesFromMount(mangaPath)
+	files, err := util.FindCBZFilesFromMount(mangaPath)
 	if err != nil {
 		h.Logger("ERROR", fmt.Sprintf("Error finding CBZ files: %v", err))
 		http.Redirect(w, r, "/manage-manga", http.StatusSeeOther)

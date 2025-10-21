@@ -1872,34 +1872,9 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 	return nil
 }
 
-// FindCBZFiles finds all CBZ files in a directory
-func FindCBZFiles(directory string) ([]string, error) {
-	var files []string
-
-	err := filepath.Walk(directory, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() && strings.ToLower(filepath.Ext(path)) == ".cbz" {
-			files = append(files, path)
-		}
-		return nil
-	})
-
-	return files, err
-}
-
 // helper function to get minimum of two integers
 func min(a, b int) int {
 	if a < b {
-		return a
-	}
-	return b
-}
-
-// Helper function for finding the maximum of two integers
-func max(a, b int) int {
-	if a > b {
 		return a
 	}
 	return b

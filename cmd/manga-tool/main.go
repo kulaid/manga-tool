@@ -10,6 +10,7 @@ import (
 
 	"manga-tool/cmd/manga-tool/utils"
 	"manga-tool/internal/komga"
+	"manga-tool/internal/util"
 )
 
 // parseLibrariesEnv parses comma-separated library names from environment variable
@@ -24,17 +25,17 @@ func parseLibrariesEnv(envValue string) []string {
 func main() {
 	// Create default configuration
 	appConfig := &utils.AppConfig{
-		MangaBaseDir:     utils.GetEnv("MANGA_BASE_DIR", "/mnt/manga"),
+		MangaBaseDir:     util.GetEnv("MANGA_BASE_DIR", "/mnt/manga"),
 		TempDir:          "/config/temp",
-		Port:             utils.GetEnv("PORT", "25000"),
+		Port:             util.GetEnv("PORT", "25000"),
 		PromptTimeout:    5 * time.Minute,
-		RealDebridAPIKey: utils.GetEnv("REALDEBRID_API_KEY", ""),
+		RealDebridAPIKey: util.GetEnv("REALDEBRID_API_KEY", ""),
 		Komga: komga.Config{
-			URL:            utils.GetEnv("KOMGA_URL", ""),
-			Username:       utils.GetEnv("KOMGA_USERNAME", ""),
-			Password:       utils.GetEnv("KOMGA_PASSWORD", ""),
-			Libraries:      parseLibrariesEnv(utils.GetEnv("KOMGA_LIBRARIES", "")),
-			RefreshEnabled: utils.GetEnv("KOMGA_REFRESH_ENABLED", "true") == "true",
+			URL:            util.GetEnv("KOMGA_URL", ""),
+			Username:       util.GetEnv("KOMGA_USERNAME", ""),
+			Password:       util.GetEnv("KOMGA_PASSWORD", ""),
+			Libraries:      parseLibrariesEnv(util.GetEnv("KOMGA_LIBRARIES", "")),
+			RefreshEnabled: util.GetEnv("KOMGA_REFRESH_ENABLED", "true") == "true",
 		},
 	}
 

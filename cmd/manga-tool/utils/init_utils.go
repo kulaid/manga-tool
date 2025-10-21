@@ -6,14 +6,13 @@ import (
 	"html/template"
 	"log"
 	"os"
-	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
 	"manga-tool/internal/cache"
 	"manga-tool/internal/komga"
+	"manga-tool/internal/util"
 )
 
 // AppConfig holds the application configuration
@@ -114,17 +113,17 @@ func Initialize(appConfig *AppConfig) (*template.Template, error) {
 	}
 
 	// Override with environment variables if set
-	appConfig.MangaBaseDir = GetEnv("MANGA_TOOL_MANGA_BASE_DIR", appConfig.MangaBaseDir)
-	appConfig.MangaBaseDir = GetEnv("MANGA_TOOL_KOMGA_BASE_DIR", appConfig.MangaBaseDir)
-	appConfig.TempDir = GetEnv("MANGA_TOOL_TEMP_DIR", appConfig.TempDir)
-	appConfig.Port = GetEnv("MANGA_TOOL_PORT", appConfig.Port)
-	if timeout := GetEnvInt("MANGA_TOOL_PROMPT_TIMEOUT", 0); timeout > 0 {
+	appConfig.MangaBaseDir = util.GetEnv("MANGA_TOOL_MANGA_BASE_DIR", appConfig.MangaBaseDir)
+	appConfig.MangaBaseDir = util.GetEnv("MANGA_TOOL_KOMGA_BASE_DIR", appConfig.MangaBaseDir)
+	appConfig.TempDir = util.GetEnv("MANGA_TOOL_TEMP_DIR", appConfig.TempDir)
+	appConfig.Port = util.GetEnv("MANGA_TOOL_PORT", appConfig.Port)
+	if timeout := util.GetEnvInt("MANGA_TOOL_PROMPT_TIMEOUT", 0); timeout > 0 {
 		appConfig.PromptTimeout = time.Duration(timeout) * time.Second
 	}
-	appConfig.Parallelism = GetEnvInt("MANGA_TOOL_PARALLELISM", appConfig.Parallelism)
-	appConfig.Komga.URL = GetEnv("MANGA_TOOL_KOMGA_URL", appConfig.Komga.URL)
-	appConfig.Komga.Username = GetEnv("MANGA_TOOL_KOMGA_USER", appConfig.Komga.Username)
-	appConfig.Komga.Password = GetEnv("MANGA_TOOL_KOMGA_PASSWORD", appConfig.Komga.Password)
+	appConfig.Parallelism = util.GetEnvInt("MANGA_TOOL_PARALLELISM", appConfig.Parallelism)
+	appConfig.Komga.URL = util.GetEnv("MANGA_TOOL_KOMGA_URL", appConfig.Komga.URL)
+	appConfig.Komga.Username = util.GetEnv("MANGA_TOOL_KOMGA_USER", appConfig.Komga.Username)
+	appConfig.Komga.Password = util.GetEnv("MANGA_TOOL_KOMGA_PASSWORD", appConfig.Komga.Password)
 
 	// Ensure directories exist
 	os.MkdirAll(appConfig.TempDir, 0755)
@@ -210,29 +209,10 @@ func Initialize(appConfig *AppConfig) (*template.Template, error) {
 	}
 
 	// Set parallelism from environment variable, default to 2
-	appConfig.Parallelism = GetEnvInt("PARALLELISM", 2)
+	appConfig.Parallelism = util.GetEnvInt("PARALLELISM", 2)
 	log.Printf("Using parallelism setting: %d", appConfig.Parallelism)
 
 	return templates, nil
-}
-
-// GetEnv gets an environment variable or returns a default value
-func GetEnv(key, defaultValue string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
-	}
-	return defaultValue
-}
-
-// GetEnvInt gets an environment variable as an integer or returns a default value
-func GetEnvInt(key string, defaultValue int) int {
-	if value, exists := os.LookupEnv(key); exists {
-		intValue, err := strconv.Atoi(value)
-		if err == nil {
-			return intValue
-		}
-	}
-	return defaultValue
 }
 
 // SanitizeJSONString sanitizes a string for JSON use
@@ -253,32 +233,4 @@ func TruncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "..."
-}
-
-// FindCBZFilesFromMount finds all CBZ files in a mounted directory
-func FindCBZFilesFromMount(dir string) ([]string, error) {
-	var files []string
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	// Walk through the directory to find .cbz files
-	for _, entry := range entries {
-		if entry.IsDir() {
-			// Recursively check subdirectories
-			subFiles, err := FindCBZFilesFromMount(filepath.Join(dir, entry.Name()))
-			if err != nil {
-				return nil, err
-			}
-			files = append(files, subFiles...)
-		} else {
-			// Check if file has .cbz extension
-			if filepath.Ext(entry.Name()) == ".cbz" {
-				files = append(files, filepath.Join(dir, entry.Name()))
-			}
-		}
-	}
-
-	return files, nil
 }

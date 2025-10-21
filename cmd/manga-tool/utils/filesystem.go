@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 	"sort"
+
+	"manga-tool/internal/util"
 )
 
 // GetMangaTitles returns a list of manga titles from the manga directory
@@ -43,20 +45,12 @@ func SortStringSlice(s []string) {
 	sort.Strings(s)
 }
 
-// DirExists checks if a directory exists
+// DirExists checks if a directory exists (wrapper for util.DirExists)
 func DirExists(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-	return info.IsDir()
+	return util.DirExists(path)
 }
 
-// GetDirPermissions returns the permissions of a directory as a string
+// GetDirPermissions returns the permissions of a directory as a string (wrapper for util.GetDirPermissions)
 func GetDirPermissions(path string) string {
-	info, err := os.Stat(path)
-	if err != nil {
-		return err.Error()
-	}
-	return info.Mode().String()
+	return util.GetDirPermissions(path)
 }
