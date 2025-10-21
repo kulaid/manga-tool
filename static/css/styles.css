@@ -1,37 +1,55 @@
 /* ================================================================
-   Manga Tool - Clean & Symmetrical Design
+   Manga Tool - Clean & Unified Design System
    ================================================================ */
 
 /* ================================================================
-   CSS Variables & Theme Configuration
+   CSS Variables & Theme Configuration - OLED Optimized
    ================================================================ */
 :root {
-    /* Simple Color Palette */
+    /* Indicate dark color scheme for browser/extensions */
+    color-scheme: dark;
+    
+    /* Primary Color Palette */
     --primary-color: #3b82f6;
     --primary-hover: #2563eb;
+    --primary-light: rgba(59, 130, 246, 0.15);
+    
+    /* Semantic Colors */
     --success-color: #10b981;
     --success-hover: #059669;
+    --success-light: rgba(16, 185, 129, 0.15);
+    
     --warning-color: #f59e0b;
+    --warning-hover: #d97706;
+    --warning-light: rgba(245, 158, 11, 0.15);
+    
     --danger-color: #ef4444;
     --danger-hover: #dc2626;
+    --danger-light: rgba(239, 68, 68, 0.15);
+    
     --info-color: #06b6d4;
+    --info-hover: #0891b2;
+    --info-light: rgba(6, 182, 212, 0.15);
     
-    /* Clean Background Colors */
-    --bg-body: #0f172a;
-    --bg-card: #1e293b;
-    --bg-hover: #334155;
-    --bg-input: #1e293b;
+    /* OLED-Friendly True Black Backgrounds */
+    --bg-body: #000000;
+    --bg-card: #0a0a0a;
+    --bg-hover: #1a1a1a;
+    --bg-input: #0f0f0f;
+    --bg-section: #0a0a0a;
     
-    /* Text Colors */
-    --text-primary: #f1f5f9;
-    --text-secondary: #cbd5e1;
-    --text-muted: #94a3b8;
+    /* Text Colors - High Contrast for OLED */
+    --text-primary: #ffffff;
+    --text-secondary: #e0e0e0;
+    --text-muted: #a0a0a0;
     
-    /* Border */
-    --border-color: #334155;
+    /* Border - Subtle but visible */
+    --border-color: #2a2a2a;
+    --border-color-light: #3a3a3a;
     --border-radius: 8px;
+    --border-radius-lg: 12px;
     
-    /* Spacing */
+    /* Spacing System */
     --spacing-unit: 1rem;
     --spacing-xs: calc(var(--spacing-unit) * 0.5);
     --spacing-sm: calc(var(--spacing-unit) * 0.75);
@@ -40,8 +58,14 @@
     --spacing-xl: calc(var(--spacing-unit) * 2);
     --spacing-2xl: calc(var(--spacing-unit) * 3);
     
+    /* Shadows - Subtle for OLED */
+    --shadow-sm: 0 1px 2px 0 rgba(255, 255, 255, 0.02);
+    --shadow-md: 0 4px 6px -1px rgba(255, 255, 255, 0.03);
+    --shadow-lg: 0 10px 15px -3px rgba(255, 255, 255, 0.04);
+    
     /* Transitions */
     --transition: 200ms ease-in-out;
+    --transition-slow: 300ms ease-in-out;
 }
 
 /* ================================================================
@@ -61,6 +85,13 @@ body {
     padding: var(--spacing-xl) 0;
     margin: 0;
     min-height: 100vh;
+    color-scheme: dark;
+}
+
+/* Explicitly set meta tag compatibility */
+html {
+    color-scheme: dark;
+    background-color: var(--bg-body);
 }
 
 /* ================================================================
@@ -102,13 +133,13 @@ p {
 }
 
 .manga-header {
-    background-color: var(--bg-card);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     padding: var(--spacing-xl);
     margin-bottom: var(--spacing-xl);
-    border-radius: var(--border-radius);
-    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
     text-align: center;
+    box-shadow: var(--shadow-lg);
 }
 
 .manga-header h1 {
@@ -116,10 +147,14 @@ p {
     margin-bottom: var(--spacing-sm);
     font-size: 1.75rem;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
 }
 
 .manga-header .lead {
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.9);
     font-size: 1rem;
     margin-bottom: 0;
 }
@@ -186,12 +221,14 @@ p {
 .manage-section,
 .process-section,
 .cache-section,
-.delete-section {
+.delete-section,
+.files-section {
     background-color: var(--bg-card);
     padding: var(--spacing-xl);
     margin-bottom: var(--spacing-xl);
-    border-radius: var(--border-radius);
+    border-radius: var(--border-radius-lg);
     border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
 }
 
 .card-header {
@@ -412,26 +449,34 @@ select.form-control:focus {
     background-color: var(--bg-card);
     border-radius: var(--border-radius);
     color: var(--text-primary);
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+}
+
+.alert i {
+    margin-top: 0.125rem;
+    flex-shrink: 0;
 }
 
 .alert-info {
     border-left-color: var(--info-color);
-    background-color: rgba(6, 182, 212, 0.1);
+    background-color: var(--info-light);
 }
 
 .alert-success {
     border-left-color: var(--success-color);
-    background-color: rgba(16, 185, 129, 0.1);
+    background-color: var(--success-light);
 }
 
 .alert-warning {
     border-left-color: var(--warning-color);
-    background-color: rgba(245, 158, 11, 0.1);
+    background-color: var(--warning-light);
 }
 
 .alert-danger {
     border-left-color: var(--danger-color);
-    background-color: rgba(239, 68, 68, 0.1);
+    background-color: var(--danger-light);
 }
 
 /* ================================================================
@@ -493,6 +538,7 @@ select.form-control:focus {
     background-color: var(--bg-input);
     border-radius: var(--border-radius);
     overflow: hidden;
+    border: 1px solid var(--border-color);
 }
 
 .progress-bar {
@@ -505,6 +551,7 @@ select.form-control:focus {
     color: white;
     font-weight: 600;
     font-size: 0.875rem;
+    line-height: 2rem;
 }
 
 .process-actions {
@@ -632,27 +679,75 @@ select.form-control:focus {
 }
 
 /* File Items */
-.files-list {
+.files-list,
+.file-list {
     max-height: 400px;
     overflow-y: auto;
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     padding: var(--spacing-md);
     background-color: var(--bg-input);
+    list-style: none;
+    margin: 0;
 }
 
 .file-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--spacing-sm);
+    padding: var(--spacing-md);
     margin-bottom: var(--spacing-sm);
     border-radius: var(--border-radius);
-    transition: background-color var(--transition);
+    transition: all var(--transition);
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
 }
 
 .file-item:hover {
     background-color: var(--bg-hover);
+    border-color: var(--primary-color);
+}
+
+.file-item:last-child {
+    margin-bottom: 0;
+}
+
+.file-name {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.file-info {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.file-size {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.file-type-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 0.5rem;
+}
+
+.volume-badge {
+    background-color: var(--primary-light);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+.chapter-badge {
+    background-color: var(--info-light);
+    color: var(--info-color);
+    border: 1px solid var(--info-color);
 }
 
 .select-all-none {
@@ -907,4 +1002,276 @@ textarea:-webkit-autofill:focus {
 .row > * {
     padding-left: 0;
     padding-right: 0;
+}
+
+/* ================================================================
+   Selection Controls
+   ================================================================ */
+.selection-controls {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background-color: var(--bg-input);
+    border-radius: var(--border-radius);
+}
+
+/* ================================================================
+   Close Button
+   ================================================================ */
+.btn-close {
+    background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e") center/1em auto no-repeat;
+    border: 0;
+    border-radius: 0.25rem;
+    opacity: 0.5;
+    width: 1em;
+    height: 1em;
+    padding: 0;
+    cursor: pointer;
+}
+
+.btn-close:hover {
+    opacity: 0.75;
+}
+
+/* ================================================================
+   Process Page Specific Styles
+   ================================================================ */
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: var(--spacing-xl);
+    border-radius: var(--border-radius-lg);
+    margin-bottom: var(--spacing-xl);
+    box-shadow: var(--shadow-lg);
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    word-break: break-word;
+    color: white;
+}
+
+.status-card {
+    border: none;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    margin-bottom: var(--spacing-xl);
+    background-color: var(--bg-card);
+}
+
+.status-card .card-header {
+    background-color: transparent;
+    border-bottom: 2px solid var(--border-color);
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0 !important;
+}
+
+.status-card .card-body {
+    padding: var(--spacing-xl);
+}
+
+.button-group {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.input-card {
+    border: 2px solid var(--primary-color);
+    background-color: var(--bg-card);
+    margin-bottom: var(--spacing-xl);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+}
+
+.input-card .card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0 !important;
+    padding: var(--spacing-lg);
+}
+
+.input-card .card-header h5 {
+    margin: 0;
+    color: white;
+}
+
+.prompt-area {
+    white-space: pre-wrap;
+    font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+    background-color: var(--bg-input);
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--spacing-md);
+    border: 1px solid var(--border-color);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.prompt-area::-webkit-scrollbar {
+    width: 8px;
+}
+
+.prompt-area::-webkit-scrollbar-track {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+}
+
+.prompt-area::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.prompt-area::-webkit-scrollbar-thumb:hover {
+    background: var(--border-color-light);
+}
+
+.interaction-panel {
+    border-top: 1px solid var(--border-color);
+    padding-top: var(--spacing-md);
+    margin-top: var(--spacing-md);
+}
+
+#status-message {
+    font-size: 1rem;
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm);
+}
+
+.back-button {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+}
+
+.back-button .btn {
+    box-shadow: var(--shadow-lg);
+}
+
+/* ================================================================
+   Status Indicator
+   ================================================================ */
+#status-indicator {
+    font-size: 0.875rem;
+}
+
+/* ================================================================
+   Gap Utilities
+   ================================================================ */
+.gap-2 {
+    gap: var(--spacing-sm);
+}
+
+/* ================================================================
+   Container Max Width
+   ================================================================ */
+.container {
+    max-width: 900px;
+}
+
+/* For process page which needs more width */
+body.process-page .container {
+    max-width: 1200px;
+}
+
+/* ================================================================
+   Improved Scrollbars
+   ================================================================ */
+.files-list::-webkit-scrollbar,
+.file-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.files-list::-webkit-scrollbar-track,
+.file-list::-webkit-scrollbar-track {
+    background: var(--bg-input);
+    border-radius: var(--border-radius);
+}
+
+.files-list::-webkit-scrollbar-thumb,
+.file-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.files-list::-webkit-scrollbar-thumb:hover,
+.file-list::-webkit-scrollbar-thumb:hover {
+    background: var(--border-color-light);
+}
+
+/* ================================================================
+   Alert Dismissible
+   ================================================================ */
+.alert-dismissible {
+    padding-right: 3rem;
+}
+
+.alert-dismissible .btn-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+    padding: 0.75rem 1rem;
+}
+
+/* ================================================================
+   Fade Show
+   ================================================================ */
+.fade.show {
+    opacity: 1;
+}
+
+/* ================================================================
+   File List Selection Enhancements
+   ================================================================ */
+.file-item .form-check {
+    user-select: none; /* Prevent text selection during Shift+Click */
+}
+
+.file-item .form-check:hover {
+    background-color: var(--bg-hover);
+    border-radius: var(--border-radius);
+    padding: 0.25rem 0.5rem;
+    margin: -0.25rem -0.5rem;
+}
+
+.file-checkbox:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Selection helper text */
+.selection-helper {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: var(--spacing-sm);
+    background-color: var(--bg-input);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--spacing-md);
+    border: 1px dashed var(--border-color);
+}
+
+.selection-helper i {
+    color: var(--primary-color);
+    margin-right: 0.25rem;
+}
+
+.selection-helper kbd {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0.125rem 0.375rem;
+    font-size: 0.8125rem;
+    font-family: monospace;
+    color: var(--text-primary);
+    box-shadow: 0 1px 0 var(--border-color-light);
 }

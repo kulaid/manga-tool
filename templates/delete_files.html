@@ -3,24 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
     <title>Delete Files - Manga Tool</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="/static/css/styles.css">
-    
 </head>
 <body>
     <div class="container">
-        <div class="manga-header text-center">
-            <h1>Manga Tool</h1>
-            <p class="lead text-muted">Delete Files</p>
+        <!-- Header -->
+        <div class="manga-header">
+            <h1><i class="bi bi-trash"></i>Manga Tool</h1>
+            <p class="lead">Delete Files</p>
         </div>
 
         <!-- Flash Messages -->
         {{if .Flashes}}
             <div class="alert alert-info">
-                {{range .Flashes}}
-                    {{.Message}}<br>
-                {{end}}
+                <i class="bi bi-info-circle"></i>
+                <div>
+                    {{range .Flashes}}
+                        {{.Message}}<br>
+                    {{end}}
+                </div>
             </div>
         {{end}}
 
@@ -29,12 +33,17 @@
             <ul class="nav nav-tabs">
                 <li class="nav-item">
                     <a class="nav-link" href="/">
-                        <i class="bi bi-plus-circle me-1"></i>Add Manga
+                        <i class="bi bi-plus-circle"></i>Add Manga
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="/manage-manga">
-                        <i class="bi bi-gear me-1"></i>Manage Manga
+                        <i class="bi bi-gear"></i>Manage Manga
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/processes">
+                        <i class="bi bi-activity"></i>Processes
                     </a>
                 </li>
             </ul>
@@ -56,18 +65,23 @@
                     <div class="selection-controls mb-3">
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="select-all">
-                                <i class="bi bi-check-all me-1"></i>Select All
+                                <i class="bi bi-check-all"></i>Select All
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="select-none">
-                                <i class="bi bi-x-lg me-1"></i>Deselect All
+                                <i class="bi bi-x-lg"></i>Deselect All
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-primary" id="select-volumes">
-                                <i class="bi bi-book me-1"></i>Select Volumes
+                                <i class="bi bi-book"></i>Select Volumes
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-primary" id="select-chapters">
-                                <i class="bi bi-file-earmark me-1"></i>Select Chapters
+                                <i class="bi bi-file-earmark"></i>Select Chapters
                             </button>
                         </div>
+                    </div>
+
+                    <div class="selection-helper">
+                        <i class="bi bi-lightbulb"></i>
+                        <strong>Tip:</strong> Hold <kbd>Shift</kbd> and click to select a range • Hold <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> to select multiple
                     </div>
 
                     <ul class="file-list">
@@ -94,10 +108,10 @@
 
                     <div class="d-flex justify-content-between mt-4">
                         <a href="/manage-manga" class="btn btn-secondary">
-                            <i class="bi bi-arrow-left me-1"></i>Back to Manage
+                            <i class="bi bi-arrow-left"></i>Back to Manage
                         </a>
                         <button type="submit" class="btn btn-danger" id="delete-selected">
-                            <i class="bi bi-trash me-1"></i>Delete Selected Files
+                            <i class="bi bi-trash"></i>Delete Selected Files
                         </button>
                     </div>
                 {{else}}
@@ -106,7 +120,7 @@
                         <h4>No files found</h4>
                         <p class="text-muted">There are no files available for this manga.</p>
                         <a href="/manage-manga" class="btn btn-primary">
-                            <i class="bi bi-arrow-left me-1"></i>Back to Manage
+                            <i class="bi bi-arrow-left"></i>Back to Manage
                         </a>
                     </div>
                 {{end}}
@@ -118,37 +132,27 @@
         </div>
     </div>
 
+    <script src="/static/js/file-list-selector.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const selectAllBtn = document.getElementById('select-all');
-            const selectNoneBtn = document.getElementById('select-none');
             const selectVolumesBtn = document.getElementById('select-volumes');
             const selectChaptersBtn = document.getElementById('select-chapters');
-            const deleteSelectedBtn = document.getElementById('delete-selected');
             const deleteForm = document.getElementById('delete-form');
-            const checkboxes = document.querySelectorAll('.file-checkbox');
 
-            // Select all files
-            if (selectAllBtn) {
-                selectAllBtn.addEventListener('click', function() {
-                    checkboxes.forEach(checkbox => {
-                        checkbox.checked = true;
-                    });
-                });
-            }
-
-            // Deselect all files
-            if (selectNoneBtn) {
-                selectNoneBtn.addEventListener('click', function() {
-                    checkboxes.forEach(checkbox => {
-                        checkbox.checked = false;
-                    });
-                });
-            }
+            // Initialize file list selector with range selection support
+            const fileSelector = new FileListSelector('.file-list', {
+                checkboxClass: 'file-checkbox',
+                selectAllBtn: '#select-all',
+                deselectAllBtn: '#select-none',
+                onChange: (selectedValues) => {
+                    console.log(`Selected ${selectedValues.length} files`);
+                }
+            });
 
             // Select only volumes
             if (selectVolumesBtn) {
                 selectVolumesBtn.addEventListener('click', function() {
+                    const checkboxes = document.querySelectorAll('.file-checkbox');
                     checkboxes.forEach(checkbox => {
                         checkbox.checked = checkbox.dataset.type === 'volume';
                     });
@@ -158,6 +162,7 @@
             // Select only chapters
             if (selectChaptersBtn) {
                 selectChaptersBtn.addEventListener('click', function() {
+                    const checkboxes = document.querySelectorAll('.file-checkbox');
                     checkboxes.forEach(checkbox => {
                         checkbox.checked = checkbox.dataset.type === 'chapter';
                     });
