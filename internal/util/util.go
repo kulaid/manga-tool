@@ -318,6 +318,33 @@ func ExtractAndDeleteRARs(directory string, logger Logger) error {
 	return SuperSafeExtractRars(directory, logger, progressCallback, parallelism)
 }
 
+// downloadMadokamiFilesWithLimit downloads multiple files sequentially (1 file at a time with 3 chunks each)
+func downloadMadokamiFilesWithLimit(client *madokami.Client, fileURLs []string, destDir string, logger Logger) error {
+	// Download files sequentially since each file uses 3 parallel chunks
+	for i, fileURL := range fileURLs {
+		if logger != nil {
+			logger.Info(fmt.Sprintf("Downloading file %d/%d: %s", i+1, len(fileURLs), filepath.Base(fileURL)))
+		}
+
+		if err := client.DownloadFile(fileURL, destDir); err != nil {
+			if logger != nil {
+				logger.Error(fmt.Sprintf("Failed to download %s: %v", filepath.Base(fileURL), err))
+			}
+			return fmt.Errorf("failed to download %s: %v", filepath.Base(fileURL), err)
+		}
+
+		if logger != nil {
+			logger.Info(fmt.Sprintf("Successfully downloaded: %s", filepath.Base(fileURL)))
+		}
+	}
+
+	if logger != nil {
+		logger.Info(fmt.Sprintf("All %d files downloaded successfully", len(fileURLs)))
+	}
+
+	return nil
+}
+
 // DownloadFile downloads a file using wget with optional authentication
 func DownloadFile(downloadURL, destDir, realdebridAPIKey, madokamiUsername, madokamiPassword string, logger Logger) error {
 	if downloadURL == "" {
@@ -352,7 +379,32 @@ func DownloadFile(downloadURL, destDir, realdebridAPIKey, madokamiUsername, mado
 			return fmt.Errorf("failed to login to Madokami: %v", err)
 		}
 
-		// Get cookie string for wget
+		// Check if this is a folder URL (doesn't end with a file extension)
+		if !strings.HasSuffix(downloadURL, ".cbz") && !strings.HasSuffix(downloadURL, ".zip") &&
+			!strings.HasSuffix(downloadURL, ".rar") && !strings.HasSuffix(downloadURL, ".cbr") {
+			if logger != nil {
+				logger.Info("Detected Madokami folder URL, fetching file list")
+			}
+
+			// Get list of files from the folder
+			fileURLs, err := client.GetFolderFiles(downloadURL)
+			if err != nil {
+				return fmt.Errorf("failed to get folder files: %v", err)
+			}
+
+			if len(fileURLs) == 0 {
+				return fmt.Errorf("no files found in Madokami folder")
+			}
+
+			if logger != nil {
+				logger.Info(fmt.Sprintf("Found %d files in folder, downloading with max 3 concurrent downloads", len(fileURLs)))
+			}
+
+			// Download files with max 3 concurrent downloads
+			return downloadMadokamiFilesWithLimit(client, fileURLs, destDir, logger)
+		}
+
+		// Get cookie string for wget (single file download)
 		cookieHeader = client.GetCookieString()
 		if logger != nil {
 			logger.Info("Madokami session ready, obtained cookie for download")
