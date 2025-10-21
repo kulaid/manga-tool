@@ -1559,17 +1559,17 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 		}
 	}
 
-       // Always extract volume number from image filenames for chapters
-       if fileType == "chapter" {
-	       for _, imgPath := range imagePaths {
-		       imgBaseName := filepath.Base(imgPath)
-		       imgVolNum := extractVolumeNumber(imgBaseName)
-		       if imgVolNum > 0 {
-			       volumeNumber = imgVolNum
-			       break // Use the first valid volume number found
-		       }
-	       }
-       }
+	// Always extract volume number from image filenames for chapters
+	if fileType == "chapter" {
+		for _, imgPath := range imagePaths {
+			imgBaseName := filepath.Base(imgPath)
+			imgVolNum := extractVolumeNumber(imgBaseName)
+			if imgVolNum > 0 {
+				volumeNumber = imgVolNum
+				break // Use the first valid volume number found
+			}
+		}
+	}
 
 	if config.Process != nil {
 		updateProcessStatus(config.Process, 0, 0, fmt.Sprintf("Creating metadata for %s", baseName))
