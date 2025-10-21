@@ -20,7 +20,7 @@ import (
 	"manga-tool/internal/util"
 )
 
-// MangaOperationHandler handles manga operations like warming cache, updating metadata, and deleting
+// MangaOperationHandler handles manga operations like updating metadata and deleting
 // No auth - using Authelia for authentication
 type MangaOperationHandler struct {
 	Config         *utils.AppConfig

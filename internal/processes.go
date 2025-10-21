@@ -14,7 +14,6 @@ type ProcessType string
 
 const (
 	ProcessTypeMetadataUpdate ProcessType = "metadata_update"
-	ProcessTypeCacheWarm      ProcessType = "cache_warm"
 	ProcessTypeDelete         ProcessType = "delete"
 	ProcessTypeProcess        ProcessType = "process"
 )
