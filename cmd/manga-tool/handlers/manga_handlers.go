@@ -78,20 +78,8 @@ func (h *MangaHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Save all inputted values to cache IMMEDIATELY after form submission
 	if mangaTitle != "" {
-		var saveErr error
-		if formData.DownloadURL != "" {
-			// Save with download URL and oneshot flag
-			saveErr = cache.SaveSourceWithDownloadAndOneshot(mangaTitle, formData.MangaReaderURL, formData.MangaDexURL, formData.DownloadURL, formData.IsOneshot)
-		} else if formData.MangaReaderURL != "" || formData.MangaDexURL != "" {
-			// Save with oneshot flag
-			saveErr = cache.SaveSourcesWithOneshot(mangaTitle, formData.MangaReaderURL, formData.MangaDexURL, formData.IsOneshot)
-		} else if formData.IsOneshot {
-			// Save just oneshot flag
-			saveErr = cache.SaveSourcesWithOneshot(mangaTitle, "", "", formData.IsOneshot)
-		}
-
-		if saveErr != nil {
-			h.Logger("WARNING", fmt.Sprintf("Failed to save values to cache: %v", saveErr))
+		if err := cache.SaveSources(mangaTitle, formData.MangaReaderURL, formData.MangaDexURL, formData.DownloadURL, formData.IsOneshot); err != nil {
+			h.Logger("WARNING", fmt.Sprintf("Failed to save values to cache: %v", err))
 		} else {
 			h.Logger("INFO", fmt.Sprintf("Saved manga values to cache immediately for: %s", mangaTitle))
 		}

@@ -80,8 +80,10 @@ func GetCachedSources(title string) (MangaSource, error) {
 	return cache[title], nil
 }
 
-// SaveSources saves source links for a manga title
-func SaveSources(title, mangareaderURL, mangadexURL string) error {
+// SaveSources saves all source information for a manga title, including oneshot flag
+// Parameters can be empty strings to skip updating those fields (preserves existing values)
+// The isOneshot flag is always updated since it's a checkbox (true/false are both valid states)
+func SaveSources(title, mangareaderURL, mangadexURL, downloadURL string, isOneshot bool) error {
 	cache, err := LoadCache()
 	if err != nil {
 		return err
@@ -93,58 +95,7 @@ func SaveSources(title, mangareaderURL, mangadexURL string) error {
 		source = MangaSource{}
 	}
 
-	// Update non-empty values only
-	if mangareaderURL != "" {
-		source.MangaReader = mangareaderURL
-	}
-	if mangadexURL != "" {
-		source.MangaDex = mangadexURL
-	}
-
-	cache[title] = source
-	return SaveCache(cache)
-}
-
-// SaveSourcesWithOneshot saves source links with oneshot flag for a manga title
-func SaveSourcesWithOneshot(title, mangareaderURL, mangadexURL string, isOneshot bool) error {
-	cache, err := LoadCache()
-	if err != nil {
-		return err
-	}
-
-	// Get existing or create new
-	source, exists := cache[title]
-	if !exists {
-		source = MangaSource{}
-	}
-
-	// Update non-empty values only
-	if mangareaderURL != "" {
-		source.MangaReader = mangareaderURL
-	}
-	if mangadexURL != "" {
-		source.MangaDex = mangadexURL
-	}
-	source.IsOneshot = isOneshot
-
-	cache[title] = source
-	return SaveCache(cache)
-}
-
-// SaveSourceWithDownload saves source links including download URL for a manga title
-func SaveSourceWithDownload(title, mangareaderURL, mangadexURL, downloadURL string) error {
-	cache, err := LoadCache()
-	if err != nil {
-		return err
-	}
-
-	// Get existing or create new
-	source, exists := cache[title]
-	if !exists {
-		source = MangaSource{}
-	}
-
-	// Update non-empty values only
+	// Update non-empty values only (preserves existing values if empty string passed)
 	if mangareaderURL != "" {
 		source.MangaReader = mangareaderURL
 	}
@@ -154,34 +105,7 @@ func SaveSourceWithDownload(title, mangareaderURL, mangadexURL, downloadURL stri
 	if downloadURL != "" {
 		source.DownloadURL = downloadURL
 	}
-
-	cache[title] = source
-	return SaveCache(cache)
-}
-
-// SaveSourceWithDownloadAndOneshot saves source links including download URL and oneshot flag for a manga title
-func SaveSourceWithDownloadAndOneshot(title, mangareaderURL, mangadexURL, downloadURL string, isOneshot bool) error {
-	cache, err := LoadCache()
-	if err != nil {
-		return err
-	}
-
-	// Get existing or create new
-	source, exists := cache[title]
-	if !exists {
-		source = MangaSource{}
-	}
-
-	// Update non-empty values only
-	if mangareaderURL != "" {
-		source.MangaReader = mangareaderURL
-	}
-	if mangadexURL != "" {
-		source.MangaDex = mangadexURL
-	}
-	if downloadURL != "" {
-		source.DownloadURL = downloadURL
-	}
+	// Always update oneshot flag (it's a checkbox, so both true and false are valid)
 	source.IsOneshot = isOneshot
 
 	cache[title] = source

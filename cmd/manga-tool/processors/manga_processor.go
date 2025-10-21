@@ -478,23 +478,10 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 		return
 	}
 
-	// Save source URLs to cache with oneshot flag
-	if mangareaderURL != "" || mangadexURL != "" {
-		if err := cache.SaveSourcesWithOneshot(mangaTitle, mangareaderURL, mangadexURL, isOneshot); err != nil {
-			logger.Warning(fmt.Sprintf("Failed to save source URLs to cache: %v", err))
-		}
-	}
-
-	// Save download URL to cache if provided
-	if downloadURL != "" {
-		if err := cache.SaveSourceWithDownloadAndOneshot(mangaTitle, mangareaderURL, mangadexURL, downloadURL, isOneshot); err != nil {
-			logger.Warning(fmt.Sprintf("Failed to save download URL to cache: %v", err))
-		}
-	} else if mangareaderURL == "" && mangadexURL == "" {
-		// Save only oneshot flag if no other URLs
-		if err := cache.SaveSourcesWithOneshot(mangaTitle, "", "", isOneshot); err != nil {
-			logger.Warning(fmt.Sprintf("Failed to save oneshot flag to cache: %v", err))
-		}
+	// Save all source URLs to cache with oneshot flag
+	// Only update the URLs that were actually provided in this process
+	if err := cache.SaveSources(mangaTitle, mangareaderURL, mangadexURL, downloadURL, isOneshot); err != nil {
+		logger.Warning(fmt.Sprintf("Failed to save source URLs to cache: %v", err))
 	}
 
 	// Mark metadata update as complete (so defer won't try to restore files)

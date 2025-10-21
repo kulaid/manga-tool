@@ -310,18 +310,10 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 		isOneshot := r.FormValue("is_oneshot") == "true"
 
 		// Save all inputted values to cache IMMEDIATELY after form submission
+		// Pass empty string for downloadURL to preserve existing value in cache
 		if mangaTitle != "" {
-			var saveErr error
-			if mangareaderURL != "" || mangadexURL != "" {
-				// Save with oneshot flag
-				saveErr = cache.SaveSourcesWithOneshot(mangaTitle, mangareaderURL, mangadexURL, isOneshot)
-			} else if isOneshot {
-				// Save just oneshot flag
-				saveErr = cache.SaveSourcesWithOneshot(mangaTitle, "", "", isOneshot)
-			}
-
-			if saveErr != nil {
-				h.Logger("WARNING", fmt.Sprintf("Failed to save values to cache: %v", saveErr))
+			if err := cache.SaveSources(mangaTitle, mangareaderURL, mangadexURL, "", isOneshot); err != nil {
+				h.Logger("WARNING", fmt.Sprintf("Failed to save values to cache: %v", err))
 			} else {
 				h.Logger("INFO", fmt.Sprintf("Saved manga values to cache immediately for: %s", mangaTitle))
 			}
