@@ -309,6 +309,24 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 		mangadexURL := r.FormValue("mangadex_url")
 		isOneshot := r.FormValue("is_oneshot") == "true"
 
+		// Save all inputted values to cache IMMEDIATELY after form submission
+		if mangaTitle != "" {
+			var saveErr error
+			if mangareaderURL != "" || mangadexURL != "" {
+				// Save with oneshot flag
+				saveErr = cache.SaveSourcesWithOneshot(mangaTitle, mangareaderURL, mangadexURL, isOneshot)
+			} else if isOneshot {
+				// Save just oneshot flag
+				saveErr = cache.SaveSourcesWithOneshot(mangaTitle, "", "", isOneshot)
+			}
+
+			if saveErr != nil {
+				h.Logger("WARNING", fmt.Sprintf("Failed to save values to cache: %v", saveErr))
+			} else {
+				h.Logger("INFO", fmt.Sprintf("Saved manga values to cache immediately for: %s", mangaTitle))
+			}
+		}
+
 		// Start a process to update metadata
 		proc := h.ProcessManager.NewProcess(internal.ProcessTypeMetadataUpdate, mangaTitle)
 		h.Logger("INFO", fmt.Sprintf("Starting metadata update for %s (Process ID: %s)", mangaTitle, proc.ID))

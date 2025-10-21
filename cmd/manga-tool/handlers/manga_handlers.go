@@ -76,21 +76,24 @@ func (h *MangaHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 	// Get uploaded files
 	files := r.MultipartForm.File["manga_files"]
 
-	// Save manga source URLs to cache for future use
-	if mangaTitle != "" && (formData.MangaReaderURL != "" || formData.MangaDexURL != "") {
-		if err := cache.SaveSources(mangaTitle, formData.MangaReaderURL, formData.MangaDexURL); err != nil {
-			h.Logger("WARNING", fmt.Sprintf("Failed to save source URLs to cache: %v", err))
-		} else {
-			h.Logger("INFO", fmt.Sprintf("Saved manga source URLs to cache for: %s", mangaTitle))
+	// Save all inputted values to cache IMMEDIATELY after form submission
+	if mangaTitle != "" {
+		var saveErr error
+		if formData.DownloadURL != "" {
+			// Save with download URL and oneshot flag
+			saveErr = cache.SaveSourceWithDownloadAndOneshot(mangaTitle, formData.MangaReaderURL, formData.MangaDexURL, formData.DownloadURL, formData.IsOneshot)
+		} else if formData.MangaReaderURL != "" || formData.MangaDexURL != "" {
+			// Save with oneshot flag
+			saveErr = cache.SaveSourcesWithOneshot(mangaTitle, formData.MangaReaderURL, formData.MangaDexURL, formData.IsOneshot)
+		} else if formData.IsOneshot {
+			// Save just oneshot flag
+			saveErr = cache.SaveSourcesWithOneshot(mangaTitle, "", "", formData.IsOneshot)
 		}
-	}
 
-	// Save download URL to cache if provided
-	if mangaTitle != "" && formData.DownloadURL != "" {
-		if err := cache.SaveSourceWithDownload(mangaTitle, formData.MangaReaderURL, formData.MangaDexURL, formData.DownloadURL); err != nil {
-			h.Logger("WARNING", fmt.Sprintf("Failed to save download URL to cache: %v", err))
+		if saveErr != nil {
+			h.Logger("WARNING", fmt.Sprintf("Failed to save values to cache: %v", saveErr))
 		} else {
-			h.Logger("INFO", fmt.Sprintf("Saved download URL to cache for: %s", mangaTitle))
+			h.Logger("INFO", fmt.Sprintf("Saved manga values to cache immediately for: %s", mangaTitle))
 		}
 	}
 
