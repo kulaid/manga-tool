@@ -113,9 +113,6 @@ func Initialize(appConfig *AppConfig) (*template.Template, error) {
 		return nil, fmt.Errorf("error parsing templates: %v", err)
 	}
 
-	// Initialize cache
-	cache.Initialize("/opt/manga-tool")
-
 	// Override with environment variables if set
 	appConfig.MangaBaseDir = GetEnv("MANGA_TOOL_MANGA_BASE_DIR", appConfig.MangaBaseDir)
 	appConfig.MangaBaseDir = GetEnv("MANGA_TOOL_KOMGA_BASE_DIR", appConfig.MangaBaseDir)
