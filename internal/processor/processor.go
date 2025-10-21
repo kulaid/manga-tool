@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"manga-tool/internal"
+	"manga-tool/internal/util"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -129,22 +130,7 @@ func sanitizeForFilesystem(name string) string {
 	return strings.TrimSpace(result)
 }
 
-// extractVolumeNumber extracts volume number from a filename
-func extractVolumeNumber(filename string) int {
-	matches := volumeRegex.FindStringSubmatch(filename)
-	if len(matches) > 1 {
-		if matches[1] != "" {
-			if num, err := strconv.Atoi(matches[1]); err == nil {
-				return num
-			}
-		} else if matches[2] != "" {
-			if num, err := strconv.Atoi(matches[2]); err == nil {
-				return num
-			}
-		}
-	}
-	return 0
-}
+// Use util.ExtractVolumeNumber for robust extraction
 
 func extractChapterNumber(filename string) float64 {
 	// 1. Check for an explicit chapter marker (e.g. "ch123" or "c123").
@@ -635,7 +621,7 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config, i
 	}
 
 	// Extract volume number
-	volNum := extractVolumeNumber(baseName)
+	volNum := int(util.ExtractVolumeNumber(baseName))
 
 	if volNum == 0 {
 		if logger != nil {
@@ -1563,7 +1549,7 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 	if fileType == "chapter" {
 		for _, imgPath := range imagePaths {
 			imgBaseName := filepath.Base(imgPath)
-			imgVolNum := extractVolumeNumber(imgBaseName)
+			imgVolNum := int(util.ExtractVolumeNumber(imgBaseName))
 			if imgVolNum > 0 {
 				volumeNumber = imgVolNum
 				break // Use the first valid volume number found
@@ -1681,7 +1667,7 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 			continue
 		}
 
-		volNum := extractVolumeNumber(baseName)
+		volNum := int(util.ExtractVolumeNumber(baseName))
 		chapterNum := extractChapterNumber(baseName)
 
 		// Priority: If we found a chapter number (including Chapter 0), treat it as a chapter
@@ -1742,7 +1728,7 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 				defer func() { <-sem }() // Release token
 
 				baseName := filepath.Base(filePath)
-				volumeNum := extractVolumeNumber(baseName)
+				volumeNum := int(util.ExtractVolumeNumber(baseName))
 
 				// Update status
 				mu.Lock()
