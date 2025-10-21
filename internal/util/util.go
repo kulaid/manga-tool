@@ -437,36 +437,33 @@ func DownloadFile(downloadURL, destDir, realdebridAPIKey, madokamiUsername, mado
 			return fmt.Errorf("failed to login to Madokami: %v", err)
 		}
 
-		// Check if this is a folder URL (doesn't end with a file extension)
-		if !strings.HasSuffix(downloadURL, ".cbz") && !strings.HasSuffix(downloadURL, ".zip") &&
-			!strings.HasSuffix(downloadURL, ".rar") && !strings.HasSuffix(downloadURL, ".cbr") {
-			if logger != nil {
-				logger.Info("Detected Madokami folder URL, fetching file list")
-			}
 
-			// Get list of files from the folder
-			fileURLs, err := client.GetFolderFiles(downloadURL)
-			if err != nil {
-				return fmt.Errorf("failed to get folder files: %v", err)
-			}
-
-			if len(fileURLs) == 0 {
-				return fmt.Errorf("no files found in Madokami folder")
-			}
-
-			if logger != nil {
-				logger.Info(fmt.Sprintf("Found %d files in folder, downloading with max 3 concurrent downloads", len(fileURLs)))
-			}
-
-			// Download files with max 3 concurrent downloads
-			return downloadMadokamiFilesWithLimit(client, fileURLs, destDir, logger)
-		}
-
-		// Get cookie string for wget (single file download)
-		cookieHeader = client.GetCookieString()
-		if logger != nil {
-			logger.Info("Madokami session ready, obtained cookie for download")
-		}
+	       // If this is a Madokami link, always use Go client for download (single file or folder)
+	       if !strings.HasSuffix(downloadURL, ".cbz") && !strings.HasSuffix(downloadURL, ".zip") &&
+		       !strings.HasSuffix(downloadURL, ".rar") && !strings.HasSuffix(downloadURL, ".cbr") {
+		       if logger != nil {
+			       logger.Info("Detected Madokami folder URL, fetching file list")
+		       }
+		       fileURLs, err := client.GetFolderFiles(downloadURL)
+		       if err != nil {
+			       return fmt.Errorf("failed to get folder files: %v", err)
+		       }
+		       if len(fileURLs) == 0 {
+			       return fmt.Errorf("no files found in Madokami folder")
+		       }
+		       if logger != nil {
+			       logger.Info(fmt.Sprintf("Found %d files in folder, downloading with max 3 concurrent downloads", len(fileURLs)))
+		       }
+		       return downloadMadokamiFilesWithLimit(client, fileURLs, destDir, logger)
+	       } else {
+		       // Single file download
+		       progressReporter := &madokamiProgressReporter{logger: logger}
+		       client.SetProgressReporter(progressReporter)
+		       if err := client.DownloadFile(downloadURL, destDir); err != nil {
+			       return fmt.Errorf("madokami single file download failed: %v", err)
+		       }
+		       return nil
+	       }
 	}
 
 	// Check if this is a magnet link
