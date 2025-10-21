@@ -747,19 +747,22 @@ func (h *MangaOperationHandler) StatusHandler(w http.ResponseWriter, r *http.Req
 
 	// Create the response with the specific format expected by the frontend
 	response := struct {
-		Status       string `json:"status"`
-		Progress     int    `json:"progress"`
-		Total        int    `json:"total"`
-		Message      string `json:"message"`
-		Error        string `json:"error"`
-		WaitingInput bool   `json:"waiting_input"`
-		InputPrompt  string `json:"input_prompt"`
-		InputType    string `json:"input_type"`
-		ProcessID    string `json:"process_id"`
-		SafeHTML     bool   `json:"safe_html"`
-		ProcessType  string `json:"process_type"`
-		StartTime    string `json:"start_time"`
-		Duration     string `json:"duration"`
+		Status         string  `json:"status"`
+		Progress       int     `json:"progress"`
+		Total          int     `json:"total"`
+		Message        string  `json:"message"`
+		Error          string  `json:"error"`
+		WaitingInput   bool    `json:"waiting_input"`
+		InputPrompt    string  `json:"input_prompt"`
+		InputType      string  `json:"input_type"`
+		ProcessID      string  `json:"process_id"`
+		SafeHTML       bool    `json:"safe_html"`
+		ProcessType    string  `json:"process_type"`
+		StartTime      string  `json:"start_time"`
+		Duration       string  `json:"duration"`
+		DownloadSpeed  float64 `json:"download_speed,omitempty"`
+		DownloadedSize int64   `json:"downloaded_size,omitempty"`
+		TotalSize      int64   `json:"total_size,omitempty"`
 	}{
 		Status:       string(proc.Status),
 		Progress:     proc.Progress,
@@ -774,6 +777,19 @@ func (h *MangaOperationHandler) StatusHandler(w http.ResponseWriter, r *http.Req
 		ProcessType:  string(proc.Type),
 		StartTime:    proc.StartTime.Format(time.RFC3339),
 		Duration:     time.Since(proc.StartTime).String(),
+	}
+
+	// Add download speed information if available
+	if proc.Metadata != nil {
+		if speed, ok := proc.Metadata["download_speed"].(float64); ok {
+			response.DownloadSpeed = speed
+		}
+		if downloaded, ok := proc.Metadata["downloaded_size"].(int64); ok {
+			response.DownloadedSize = downloaded
+		}
+		if totalSize, ok := proc.Metadata["total_size"].(int64); ok {
+			response.TotalSize = totalSize
+		}
 	}
 
 	// Return as JSON

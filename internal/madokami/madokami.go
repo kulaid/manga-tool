@@ -12,15 +12,66 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
+// ProgressReporter is an interface for reporting download progress
+type ProgressReporter interface {
+	ReportProgress(downloaded int64, total int64, speed float64)
+}
+
+// progressWriter wraps an io.Writer to track bytes written and report progress
+type progressWriter struct {
+	writer       io.Writer
+	total        int64
+	downloaded   int64
+	reporter     ProgressReporter
+	lastReported time.Time
+	startTime    time.Time
+}
+
+func newProgressWriter(w io.Writer, total int64, reporter ProgressReporter) *progressWriter {
+	now := time.Now()
+	return &progressWriter{
+		writer:       w,
+		total:        total,
+		downloaded:   0,
+		reporter:     reporter,
+		lastReported: now,
+		startTime:    now,
+	}
+}
+
+func (pw *progressWriter) Write(p []byte) (int, error) {
+	n, err := pw.writer.Write(p)
+	if n > 0 {
+		atomic.AddInt64(&pw.downloaded, int64(n))
+		
+		// Report progress every 500ms to avoid too many updates
+		now := time.Now()
+		if pw.reporter != nil && now.Sub(pw.lastReported) > 500*time.Millisecond {
+			downloaded := atomic.LoadInt64(&pw.downloaded)
+			elapsed := now.Sub(pw.startTime).Seconds()
+			speed := 0.0
+			if elapsed > 0 {
+				speed = float64(downloaded) / elapsed
+			}
+			pw.reporter.ReportProgress(downloaded, pw.total, speed)
+			pw.lastReported = now
+		}
+	}
+	return n, err
+}
+
 type Client struct {
-	username   string
-	password   string
-	httpClient *http.Client
-	cookieJar  *cookiejar.Jar
-	loggedIn   bool
-	mu         sync.Mutex
+	username         string
+	password         string
+	httpClient       *http.Client
+	cookieJar        *cookiejar.Jar
+	loggedIn         bool
+	mu               sync.Mutex
+	progressReporter ProgressReporter
 }
 
 var (
@@ -209,6 +260,13 @@ func (c *Client) IsLoggedIn() bool {
 	return c.loggedIn
 }
 
+// SetProgressReporter sets a progress reporter for download tracking
+func (c *Client) SetProgressReporter(reporter ProgressReporter) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.progressReporter = reporter
+}
+
 // IsMadokamiURL checks if a URL is a Madokami URL
 func IsMadokamiURL(urlStr string) bool {
 	return strings.Contains(urlStr, "madokami.al")
@@ -330,7 +388,13 @@ func (c *Client) downloadFileSingle(fileURL, destPath string) error {
 	}
 	defer outFile.Close()
 
-	_, err = io.Copy(outFile, resp.Body)
+	// Use progress writer if reporter is available
+	var writer io.Writer = outFile
+	if c.progressReporter != nil && resp.ContentLength > 0 {
+		writer = newProgressWriter(outFile, resp.ContentLength, c.progressReporter)
+	}
+
+	_, err = io.Copy(writer, resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to write file: %v", err)
 	}
@@ -349,6 +413,35 @@ func (c *Client) downloadFileChunked(fileURL, destPath string, totalSize int64) 
 	tempFiles := make([]string, numChunks)
 	for i := 0; i < numChunks; i++ {
 		tempFiles[i] = fmt.Sprintf("%s.part%d", destPath, i)
+	}
+
+	// Shared progress tracking for all chunks
+	var totalDownloaded int64
+	var progressMu sync.Mutex
+	startTime := time.Now()
+	var lastReported time.Time
+
+	reportProgress := func(bytesAdded int64) {
+		if c.progressReporter == nil {
+			return
+		}
+		
+		progressMu.Lock()
+		defer progressMu.Unlock()
+		
+		totalDownloaded += bytesAdded
+		now := time.Now()
+		
+		// Report every 500ms to avoid too many updates
+		if now.Sub(lastReported) > 500*time.Millisecond {
+			elapsed := now.Sub(startTime).Seconds()
+			speed := 0.0
+			if elapsed > 0 {
+				speed = float64(totalDownloaded) / elapsed
+			}
+			c.progressReporter.ReportProgress(totalDownloaded, totalSize, speed)
+			lastReported = now
+		}
 	}
 
 	// Download chunks in parallel
@@ -371,7 +464,7 @@ func (c *Client) downloadFileChunked(fileURL, destPath string, totalSize int64) 
 			}
 
 			// Download this chunk
-			if err := c.downloadChunk(fileURL, tempFiles[chunkIndex], start, end); err != nil {
+			if err := c.downloadChunkWithProgress(fileURL, tempFiles[chunkIndex], start, end, reportProgress); err != nil {
 				errChan <- fmt.Errorf("chunk %d failed: %v", chunkIndex, err)
 			}
 		}(i)
@@ -416,8 +509,8 @@ func (c *Client) downloadFileChunked(fileURL, destPath string, totalSize int64) 
 	return nil
 }
 
-// downloadChunk downloads a specific byte range of a file
-func (c *Client) downloadChunk(fileURL, destPath string, start, end int64) error {
+// downloadChunkWithProgress downloads a specific byte range with progress tracking
+func (c *Client) downloadChunkWithProgress(fileURL, destPath string, start, end int64, progressCallback func(int64)) error {
 	req, err := http.NewRequest("GET", fileURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)
@@ -442,10 +535,34 @@ func (c *Client) downloadChunk(fileURL, destPath string, start, end int64) error
 	}
 	defer outFile.Close()
 
-	_, err = io.Copy(outFile, resp.Body)
+	// Use a custom reader to track progress if callback provided
+	if progressCallback != nil {
+		reader := &progressReader{
+			reader:   resp.Body,
+			callback: progressCallback,
+		}
+		_, err = io.Copy(outFile, reader)
+	} else {
+		_, err = io.Copy(outFile, resp.Body)
+	}
+	
 	if err != nil {
 		return fmt.Errorf("failed to write chunk: %v", err)
 	}
 
 	return nil
+}
+
+// progressReader wraps an io.Reader to track bytes read
+type progressReader struct {
+	reader   io.Reader
+	callback func(int64)
+}
+
+func (pr *progressReader) Read(p []byte) (int, error) {
+	n, err := pr.reader.Read(p)
+	if n > 0 && pr.callback != nil {
+		pr.callback(int64(n))
+	}
+	return n, err
 }

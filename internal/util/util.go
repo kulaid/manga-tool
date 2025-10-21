@@ -320,6 +320,10 @@ func ExtractAndDeleteRARs(directory string, logger Logger) error {
 
 // downloadMadokamiFilesWithLimit downloads multiple files sequentially (1 file at a time with 3 chunks each)
 func downloadMadokamiFilesWithLimit(client *madokami.Client, fileURLs []string, destDir string, logger Logger) error {
+	// Create a progress reporter that logs download speed
+	progressReporter := &madokamiProgressReporter{logger: logger}
+	client.SetProgressReporter(progressReporter)
+	
 	// Download files sequentially since each file uses 3 parallel chunks
 	for i, fileURL := range fileURLs {
 		if logger != nil {
@@ -343,6 +347,60 @@ func downloadMadokamiFilesWithLimit(client *madokami.Client, fileURLs []string, 
 	}
 
 	return nil
+}
+
+// madokamiProgressReporter implements madokami.ProgressReporter using a logger
+type madokamiProgressReporter struct {
+	logger Logger
+}
+
+func (mpr *madokamiProgressReporter) ReportProgress(downloaded int64, total int64, speed float64) {
+	if mpr.logger == nil {
+		return
+	}
+	
+	percentage := 0
+	if total > 0 {
+		percentage = int((downloaded * 100) / total)
+	}
+	
+	// Format speed
+	speedStr := formatBytesPerSecond(speed)
+	
+	// Log progress with speed
+	mpr.logger.Info(fmt.Sprintf("PROGRESS: %d%% (%s / %s) - %s",
+		percentage,
+		formatBytesSize(downloaded),
+		formatBytesSize(total),
+		speedStr))
+}
+
+// formatBytesSize formats bytes to human readable size
+func formatBytesSize(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// formatBytesPerSecond formats bytes per second to human readable speed
+func formatBytesPerSecond(bytesPerSecond float64) string {
+	const unit = 1024
+	if bytesPerSecond < unit {
+		return fmt.Sprintf("%.0f B/s", bytesPerSecond)
+	}
+	div, exp := float64(unit), 0
+	for n := bytesPerSecond / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB/s", bytesPerSecond/div, "KMGTPE"[exp])
 }
 
 // DownloadFile downloads a file using wget with optional authentication

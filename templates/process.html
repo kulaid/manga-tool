@@ -201,13 +201,68 @@
                         // Update progress information
                         if (data.total > 0) {
                             const percentage = Math.round((data.progress / data.total) * 100);
-                            progressBar.style.width = percentage + '%';
-                            progressBar.setAttribute('aria-valuenow', percentage);
+                        progressBar.style.width = percentage + '%';
+                        progressBar.setAttribute('aria-valuenow', percentage);
+                    } else {
+                        progressBar.style.width = '0%';
+                        progressBar.setAttribute('aria-valuenow', 0);
+                    }
+                    
+                    // Parse and format the status message
+                    let displayMessage = data.message || 'Processing...';
+                    
+                    // Check if we have dedicated download speed info from API
+                    if (data.download_speed && data.download_speed > 0) {
+                        const speed = formatSpeed(data.download_speed);
+                        const speedBadge = document.createElement('span');
+                        speedBadge.className = 'badge bg-info ms-2';
+                        speedBadge.innerHTML = '<i class="bi bi-download me-1"></i>' + speed;
+                        
+                        statusMessage.textContent = displayMessage + ' ';
+                        statusMessage.appendChild(speedBadge);
+                    } else {
+                        // Fallback: Extract download speed from message text if present
+                        // Look for patterns like "PROGRESS: ... 1.5MB/s" or "... 500KB/s"
+                        const speedMatch = displayMessage.match(/(\d+(?:\.\d+)?)\s*(KB|MB|GB)\/s/i);
+                        if (speedMatch) {
+                            const speed = speedMatch[1];
+                            const unit = speedMatch[2];
+                            
+                            // Check if message contains PROGRESS: prefix and make it more readable
+                            if (displayMessage.includes('PROGRESS:')) {
+                                // Extract just the progress bar portion if it exists
+                                const progressBarMatch = displayMessage.match(/(\d+)%.*?(\d+(?:\.\d+)?[KMG]B\/s)/);
+                                if (progressBarMatch) {
+                                    const pct = progressBarMatch[1];
+                                    const spd = progressBarMatch[2];
+                                    
+                                    const speedBadge = document.createElement('span');
+                                    speedBadge.className = 'badge bg-info ms-2';
+                                    speedBadge.innerHTML = '<i class="bi bi-download me-1"></i>' + spd;
+                                    
+                                    statusMessage.textContent = `Downloading... ${pct}% `;
+                                    statusMessage.appendChild(speedBadge);
+                                } else {
+                                    statusMessage.textContent = displayMessage;
+                                }
+                            } else {
+                                // Just highlight the speed in the message
+                                const parts = displayMessage.split(speedMatch[0]);
+                                statusMessage.textContent = parts[0];
+                                
+                                const speedBadge = document.createElement('span');
+                                speedBadge.className = 'badge bg-info ms-2';
+                                speedBadge.innerHTML = '<i class="bi bi-download me-1"></i>' + speed + ' ' + unit + '/s';
+                                statusMessage.appendChild(speedBadge);
+                                
+                                if (parts[1]) {
+                                    statusMessage.appendChild(document.createTextNode(parts[1]));
+                                }
+                            }
                         } else {
-                            progressBar.style.width = '0%';
-                            progressBar.setAttribute('aria-valuenow', 0);
+                            statusMessage.textContent = displayMessage;
                         }
-                        statusMessage.textContent = data.message || 'Processing...';
+                    }
                         
                         // Check for waiting input
                         if (data.waiting_input) {
