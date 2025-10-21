@@ -161,27 +161,26 @@ func (c *Client) Login() error {
 	// Read response body for debugging
 	body, _ := io.ReadAll(resp.Body)
 
+	// Check for cookies as indication of successful login
+	madokamiURL, _ := url.Parse("https://madokami.al")
+	cookies := c.cookieJar.Cookies(madokamiURL)
 
-       // Check for cookies as indication of successful login
-       madokamiURL, _ := url.Parse("https://madokami.al")
-       cookies := c.cookieJar.Cookies(madokamiURL)
-
-       if len(cookies) > 0 {
-	       // Check if we got a session cookie
-	       for _, cookie := range cookies {
-		       if cookie.Name == "PHPSESSID" || cookie.Name == "session" || cookie.Name == "madokami_session" || cookie.Name == "laravel_session" {
-			       c.loggedIn = true
-			       // Save cookies to cache (without lock, already locked in Login)
-			       _ = c.saveCookiesInternal()
-			       return nil
-		       }
-	       }
-	       // If we got any cookies after login, assume success
-	       c.loggedIn = true
-	       // Save cookies to cache (without lock, already locked in Login)
-	       _ = c.saveCookiesInternal()
-	       return nil
-       }
+	if len(cookies) > 0 {
+		// Check if we got a session cookie
+		for _, cookie := range cookies {
+			if cookie.Name == "PHPSESSID" || cookie.Name == "session" || cookie.Name == "madokami_session" || cookie.Name == "laravel_session" {
+				c.loggedIn = true
+				// Save cookies to cache (without lock, already locked in Login)
+				_ = c.saveCookiesInternal()
+				return nil
+			}
+		}
+		// If we got any cookies after login, assume success
+		c.loggedIn = true
+		// Save cookies to cache (without lock, already locked in Login)
+		_ = c.saveCookiesInternal()
+		return nil
+	}
 
 	// Check if login was successful by status code
 	// Madokami returns 302 redirect on successful login
