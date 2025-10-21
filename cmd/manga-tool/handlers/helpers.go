@@ -136,7 +136,7 @@ func respondJSONSuccess(w http.ResponseWriter, data map[string]interface{}) {
 }
 
 // renderTemplate renders a template with error handling and logging
-func renderTemplate(w http.ResponseWriter, templates *template.Template, 
+func renderTemplate(w http.ResponseWriter, templates *template.Template,
 	templateName string, data interface{}, logger func(level, message string)) {
 	if err := templates.ExecuteTemplate(w, templateName, data); err != nil {
 		logger("ERROR", "Error rendering template "+templateName+": "+err.Error())
