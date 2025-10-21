@@ -1747,6 +1747,13 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 
 				// Process volume
 				startTime := time.Now()
+				if err := ProcessVolumeFile(filePath, outputDir, seriesName, config, config.IsOneshot); err != nil {
+					mu.Lock()
+					errorCount++
+					mu.Unlock()
+					logger.Error(fmt.Sprintf("Error processing volume file %s: %v", baseName, err))
+					return
+				}
 
 				duration := time.Since(startTime).Round(time.Second)
 				logger.Info(fmt.Sprintf("Completed volume %d/%d: %s in %v", idx+1, len(volumes), baseName, duration))
