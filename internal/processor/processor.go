@@ -1129,15 +1129,10 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 			}
 		}
 	}
-
-	// Create output filename
-	var outputFilename string
-	if fileType == "chapter" {
-		outputFilename = generateChapterFilename(seriesName, chapterNum, volumeNumber, chapterTitle, config.IsOneshot)
-	}
-
-	// Create output path
-	outputPath := filepath.Join(outputDir, outputFilename)
+	
+       // We'll generate the output filename after extracting volume number from images (if needed)
+       var outputFilename string
+       var outputPath string
 
 	// Ensure output directory exists
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
@@ -1545,17 +1540,28 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 		}
 	}
 
-	// Always extract volume number from image filenames for chapters
-	if fileType == "chapter" {
-		for _, imgPath := range imagePaths {
-			imgBaseName := filepath.Base(imgPath)
-			imgVolNum := int(util.ExtractVolumeNumber(imgBaseName))
-			if imgVolNum > 0 {
-				volumeNumber = imgVolNum
-				break // Use the first valid volume number found
-			}
-		}
-	}
+
+       // Always extract volume number from image filenames for chapters, but only update if a valid one is found
+       if fileType == "chapter" {
+	       foundVolNum := 0
+	       for _, imgPath := range imagePaths {
+		       imgBaseName := filepath.Base(imgPath)
+		       imgVolNum := int(util.ExtractVolumeNumber(imgBaseName))
+		       if imgVolNum > 0 {
+			       foundVolNum = imgVolNum
+			       break // Use the first valid volume number found
+		       }
+	       }
+	       if foundVolNum > 0 {
+		       volumeNumber = foundVolNum
+	       }
+       }
+
+       // Now generate the output filename using the (possibly updated) volume number
+       if fileType == "chapter" {
+	       outputFilename = generateChapterFilename(seriesName, chapterNum, volumeNumber, chapterTitle, config.IsOneshot)
+       }
+       outputPath = filepath.Join(outputDir, outputFilename)
 
 	if config.Process != nil {
 		updateProcessStatus(config.Process, 0, 0, fmt.Sprintf("Creating metadata for %s", baseName))
