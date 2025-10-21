@@ -9,10 +9,10 @@
     /* Indicate dark color scheme for browser/extensions */
     color-scheme: dark;
     
-    /* Primary Color Palette */
-    --primary-color: #3b82f6;
-    --primary-hover: #2563eb;
-    --primary-light: rgba(59, 130, 246, 0.15);
+    /* Primary Color Palette - OLED Optimized Cyan */
+    --primary-color: #00d9ff;
+    --primary-hover: #00b8d4;
+    --primary-light: rgba(0, 217, 255, 0.15);
     
     /* Semantic Colors */
     --success-color: #10b981;

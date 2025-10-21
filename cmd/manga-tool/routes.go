@@ -60,13 +60,6 @@ func RegisterRoutes(r *mux.Router, ctx *AppContext) {
 		r.HandleFunc(route.Path, route.Handler).Methods(route.Methods...)
 	}
 
-	// Static file handling with no-cache headers for development
-	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("static")))
-	r.PathPrefix("/static/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Disable caching for static files to ensure CSS/JS updates are immediately visible
-		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-		w.Header().Set("Pragma", "no-cache")
-		w.Header().Set("Expires", "0")
-		staticHandler.ServeHTTP(w, r)
-	}))
+	// Static file handling
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 }
