@@ -631,8 +631,7 @@ func AskToDeleteFilesWithWebInput(directory string, logger Logger, webInput WebI
 	// Use the complete file list message as the prompt
 	prompt := fileList.String()
 	if logger != nil {
-		logger.Info("Sending file selection prompt to user interface")
-		logger.Info(prompt)
+		logger.Info("Checking if any files should be deleted before processing...")
 	}
 
 	selection := webInput(prompt, "file_deletion")
