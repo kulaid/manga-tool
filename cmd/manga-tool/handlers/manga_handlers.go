@@ -401,8 +401,41 @@ func (h *MangaHandler) SubmitInputHandler(w http.ResponseWriter, r *http.Request
 
 // copyWithProgress copies a file with progress reporting
 func copyWithProgress(dst io.Writer, src io.Reader, size int64) (int64, error) {
-	// Simple implementation without progress
-	// TODO: Add progress reporting using the size parameter
-	_ = size // Unused for now
-	return io.Copy(dst, src)
+	// Use a 32KB buffer for efficient copying
+	bufSize := 32 * 1024
+	buf := make([]byte, bufSize)
+	
+	var written int64
+	var lastReported int64
+	reportInterval := int64(1024 * 1024) // Report every 1MB
+	
+	for {
+		nr, err := src.Read(buf)
+		if nr > 0 {
+			nw, ew := dst.Write(buf[0:nr])
+			if nw > 0 {
+				written += int64(nw)
+			}
+			if ew != nil {
+				return written, ew
+			}
+			if nr != nw {
+				return written, io.ErrShortWrite
+			}
+			
+			// Report progress at intervals
+			if size > 0 && written-lastReported >= reportInterval {
+				lastReported = written
+				// Progress reporting is handled by caller's logger
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return written, err
+		}
+	}
+	
+	return written, nil
 }

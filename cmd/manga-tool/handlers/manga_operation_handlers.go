@@ -52,11 +52,6 @@ func (h *MangaOperationHandler) FileSelectionHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	// Store selected files in session
-	// TODO: Remove session usage - session, _ := h.SessionStore.Get(r, "manga-session")
-	// TODO: session.Values["selected_files"] = selectedFiles
-	// TODO: session.Save(r, w)
-
 	// Return success
 	respondJSONSuccess(w, nil)
 }
@@ -81,11 +76,6 @@ func (h *MangaOperationHandler) ChapterTitlesHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	// Store chapter titles in session
-	// TODO: Remove session usage - session, _ := h.SessionStore.Get(r, "manga-session")
-	// TODO: session.Values["chapter_titles"] = chapterTitles
-	// TODO: session.Save(r, w)
-
 	// Return success
 	respondJSONSuccess(w, nil)
 }
@@ -109,11 +99,6 @@ func (h *MangaOperationHandler) SourceSelectionHandler(w http.ResponseWriter, r 
 		http.Error(w, "No source selected", http.StatusBadRequest)
 		return
 	}
-
-	// Store selected source in session
-	// TODO: Remove session usage - session, _ := h.SessionStore.Get(r, "manga-session")
-	// TODO: session.Values["selected_source"] = source
-	// TODO: session.Save(r, w)
 
 	// Return success
 	respondJSONSuccess(w, nil)
@@ -1156,41 +1141,38 @@ func (h *MangaOperationHandler) ProcessRerunStartHandler(w http.ResponseWriter, 
 	}
 
 	// Get cached sources for this manga title
-	// TODO: Re-implement without session storage
-	if _, err := cache.GetCachedSources(proc.Title); err != nil {
+	cachedSources, err := cache.GetCachedSources(proc.Title)
+	if err != nil {
 		h.Logger("WARNING", fmt.Sprintf("Could not retrieve cached sources for %s: %v", proc.Title, err))
+		// Continue anyway with empty values
 	}
 
-	// Create a new session with the proper values to restart the process
-	// TODO: Remove session usage - session, _ := h.SessionStore.Get(r, "manga-session")
-
-	// Set manga basic info
-	// TODO: session.Values["manga_title"] = proc.Title
-	// TODO: session.Values["is_manga"] = true
-	// TODO: session.Values["is_oneshot"] = false
-	// TODO: session.Values["delete_originals"] = false
-	// TODO: session.Values["language"] = "en"
-
-	// Set cached sources
-	// TODO: session.Values["mangareader_url"] = cachedSources.MangaReader
-	// TODO: session.Values["mangadex_url"] = cachedSources.MangaDex
-	// TODO: session.Values["download_url"] = cachedSources.DownloadURL
-	// TODO: session.Values["download_username"] = ""
-	// TODO: session.Values["download_password"] = ""
-
-	// Save session
-	// TODO: Re-implement state management
-	// if err := session.Save(r, w); err != nil {
-	// 	h.Logger("ERROR", fmt.Sprintf("Failed to save session for rerun: %v", err))
-	// 	http.Redirect(w, r, "/processes", http.StatusSeeOther)
-	// 	return
-	// }
+	// Create form data from cached sources and process info
+	formData := ProcessFormData{
+		MangaTitle:       proc.Title,
+		MangaReaderURL:   cachedSources.MangaReader,
+		MangaDexURL:      cachedSources.MangaDex,
+		DownloadURL:      cachedSources.DownloadURL,
+		DownloadUsername: "",
+		DownloadPassword: "",
+		IsOneshot:        cachedSources.IsOneshot,
+		DeleteOriginals:  false,
+		Language:         "en",
+		IsUpdateMetadata: false,
+	}
 
 	// Mark original process as complete
 	h.ProcessManager.CompleteProcess(processID)
 
-	// Add flash message
+	// Create a new pending process to store form data
+	// This replaces the session-based state management
+	newProc := h.ProcessManager.NewProcess(internal.ProcessTypeProcess, proc.Title)
+	newProc.Metadata = map[string]interface{}{
+		"form_data": formData,
+		"pending":   true, // Mark as pending until ProcessHandler starts it
+	}
+	h.Logger("INFO", fmt.Sprintf("Created new process %s to rerun %s", newProc.ID, proc.Title))
 
-	// Redirect to the process page which will actually start the process
-	http.Redirect(w, r, "/process", http.StatusSeeOther)
+	// Redirect to process page with the new process ID
+	http.Redirect(w, r, fmt.Sprintf("/process?id=%s", newProc.ID), http.StatusSeeOther)
 }
