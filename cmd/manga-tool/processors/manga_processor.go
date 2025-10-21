@@ -37,8 +37,6 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 
 	mangaTitle, _ := threadData["manga_title"].(string)
 	downloadURL, _ := threadData["download_url"].(string)
-	downloadUsername, _ := threadData["download_username"].(string)
-	downloadPassword, _ := threadData["download_password"].(string)
 	isOneshot, _ := threadData["is_oneshot"].(bool)
 	mangareaderURL, _ := threadData["mangareader_url"].(string)
 	mangadexURL, _ := threadData["mangadex_url"].(string)
@@ -299,7 +297,7 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 		proc.Update(10, 100, fmt.Sprintf("Downloading manga from %s...", downloadURL))
 		logger.Info(fmt.Sprintf("DOWNLOAD STARTING: Fetching manga from %s", downloadURL))
 
-		if err := util.DownloadFile(downloadURL, mangaTempDir, downloadUsername, downloadPassword, appConfig.RealDebridAPIKey, appConfig.MadokamiUsername, appConfig.MadokamiPassword, logger); err != nil {
+		if err := util.DownloadFile(downloadURL, mangaTempDir, appConfig.RealDebridAPIKey, appConfig.MadokamiUsername, appConfig.MadokamiPassword, logger); err != nil {
 			logger.Error(fmt.Sprintf("Download failed: %v", err))
 			processManager.FailProcess(proc.ID, fmt.Sprintf("Download failed: %v", err))
 			return

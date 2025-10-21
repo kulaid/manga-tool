@@ -24,8 +24,6 @@ type ProcessFormData struct {
 	MangaReaderURL   string
 	MangaDexURL      string
 	DownloadURL      string
-	DownloadUsername string
-	DownloadPassword string
 	IsOneshot        bool
 	DeleteOriginals  bool
 	Language         string
@@ -65,8 +63,6 @@ func (h *MangaHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		MangaReaderURL:   r.FormValue("mangareader_url"),
 		MangaDexURL:      r.FormValue("mangadex_url"),
 		DownloadURL:      r.FormValue("download_url"),
-		DownloadUsername: r.FormValue("download_username"),
-		DownloadPassword: r.FormValue("download_password"),
 		IsOneshot:        r.FormValue("is_oneshot") == "true",
 		DeleteOriginals:  r.FormValue("delete_originals") == "true",
 		Language:         r.FormValue("language"),
@@ -257,16 +253,14 @@ func (h *MangaHandler) startMangaProcessing(proc *internal.Process, formData Pro
 
 	// Prepare data for the processor
 	threadData := map[string]interface{}{
-		"manga_title":       formData.MangaTitle,
-		"mangareader_url":   formData.MangaReaderURL,
-		"mangadex_url":      formData.MangaDexURL,
-		"download_url":      formData.DownloadURL,
-		"download_username": formData.DownloadUsername,
-		"download_password": formData.DownloadPassword,
-		"is_manga":          true,
-		"is_oneshot":        formData.IsOneshot,
-		"delete_originals":  formData.DeleteOriginals,
-		"language":          formData.Language,
+		"manga_title":      formData.MangaTitle,
+		"mangareader_url":  formData.MangaReaderURL,
+		"mangadex_url":     formData.MangaDexURL,
+		"download_url":     formData.DownloadURL,
+		"is_manga":         true,
+		"is_oneshot":       formData.IsOneshot,
+		"delete_originals": formData.DeleteOriginals,
+		"language":         formData.Language,
 	}
 
 	// Get config from app config

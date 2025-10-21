@@ -328,17 +328,15 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 
 		// Prepare data for ProcessManga - similar to normal processing but with update_metadata flag
 		threadData := map[string]interface{}{
-			"manga_title":       mangaTitle,
-			"mangareader_url":   mangareaderURL,
-			"mangadex_url":      mangadexURL,
-			"download_url":      "", // No download for metadata update
-			"download_username": "",
-			"download_password": "",
-			"is_manga":          true,
-			"is_oneshot":        isOneshot,
-			"delete_originals":  false,
-			"language":          "en",
-			"update_metadata":   true, // Flag to indicate this is a metadata update
+			"manga_title":      mangaTitle,
+			"mangareader_url":  mangareaderURL,
+			"mangadex_url":     mangadexURL,
+			"download_url":     "", // No download for metadata update
+			"is_manga":         true,
+			"is_oneshot":       isOneshot,
+			"delete_originals": false,
+			"language":         "en",
+			"update_metadata":  true, // Flag to indicate this is a metadata update
 		}
 
 		// Start metadata update using ProcessManga in a goroutine
@@ -932,17 +930,15 @@ func (h *MangaOperationHandler) ProcessRerunHandler(w http.ResponseWriter, r *ht
 
 		// Prepare data for ProcessManga
 		threadData := map[string]interface{}{
-			"manga_title":       originalProc.Title,
-			"mangareader_url":   mangareaderURL,
-			"mangadex_url":      mangadexURL,
-			"download_url":      "",
-			"download_username": "",
-			"download_password": "",
-			"is_manga":          true,
-			"is_oneshot":        false,
-			"delete_originals":  false,
-			"language":          "en",
-			"update_metadata":   true,
+			"manga_title":      originalProc.Title,
+			"mangareader_url":  mangareaderURL,
+			"mangadex_url":     mangadexURL,
+			"download_url":     "",
+			"is_manga":         true,
+			"is_oneshot":       false,
+			"delete_originals": false,
+			"language":         "en",
+			"update_metadata":  true,
 		}
 
 		// Start metadata update using ProcessManga
@@ -1153,8 +1149,6 @@ func (h *MangaOperationHandler) ProcessRerunStartHandler(w http.ResponseWriter, 
 		MangaReaderURL:   cachedSources.MangaReader,
 		MangaDexURL:      cachedSources.MangaDex,
 		DownloadURL:      cachedSources.DownloadURL,
-		DownloadUsername: "",
-		DownloadPassword: "",
 		IsOneshot:        cachedSources.IsOneshot,
 		DeleteOriginals:  false,
 		Language:         "en",

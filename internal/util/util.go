@@ -319,7 +319,7 @@ func ExtractAndDeleteRARs(directory string, logger Logger) error {
 }
 
 // DownloadFile downloads a file using wget with optional authentication
-func DownloadFile(downloadURL, destDir, username, password, realdebridAPIKey, madokamiUsername, madokamiPassword string, logger Logger) error {
+func DownloadFile(downloadURL, destDir, realdebridAPIKey, madokamiUsername, madokamiPassword string, logger Logger) error {
 	if downloadURL == "" {
 		return fmt.Errorf("download URL is empty")
 	}
@@ -433,15 +433,6 @@ func DownloadFile(downloadURL, destDir, username, password, realdebridAPIKey, ma
 	// Add Madokami cookie if available
 	if cookieHeader != "" {
 		args = append(args, "--header=Cookie: "+cookieHeader)
-	}
-
-	// Add authentication if provided
-	if username != "" && password != "" {
-		if logger != nil {
-			logger.Info("Using provided authentication credentials")
-		}
-		args = append(args, "--user="+username)
-		args = append(args, "--password="+password)
 	}
 
 	// Add the URL as the last argument

@@ -84,23 +84,6 @@
                                         <i class="bi bi-search"></i> Search Nyaa
                                     </a>
                                 </div>
-                                
-                                <span class="auth-toggle" id="toggle-auth">
-                                    <i class="bi bi-key"></i> Authentication
-                                </span>
-                                
-                                <div class="auth-fields" id="auth-fields">
-                                    <div class="row">
-                                        <div class="col-md-6 mb-2">
-                                            <label for="download_username" class="form-label">Username</label>
-                                            <input type="text" class="form-control" id="download_username" name="download_username" placeholder="Username">
-                                        </div>
-                                        <div class="col-md-6 mb-2">
-                                            <label for="download_password" class="form-label">Password</label>
-                                            <input type="password" class="form-control" id="download_password" name="download_password" placeholder="Password">
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -181,21 +164,6 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Authentication toggle
-            const toggleAuth = document.getElementById('toggle-auth');
-            const authFields = document.getElementById('auth-fields');
-            
-            toggleAuth.addEventListener('click', function(e) {
-                e.preventDefault();
-                if (authFields.style.display === 'block') {
-                    authFields.style.display = 'none';
-                    toggleAuth.innerHTML = '<i class="bi bi-key"></i> Authentication';
-                } else {
-                    authFields.style.display = 'block';
-                    toggleAuth.innerHTML = '<i class="bi bi-key-fill"></i> Hide Authentication';
-                }
-            });
-            
             // Get the manga title input element
             const mangaTitleInput = document.getElementById('manga_title');
             const mangareaderUrlInput = document.getElementById('mangareader_url');
