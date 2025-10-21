@@ -80,6 +80,8 @@ func convertToProcessorsAppConfig(config *utils.AppConfig, processID string, log
 		TempDir:          config.TempDir,
 		PromptTimeout:    config.PromptTimeout,
 		RealDebridAPIKey: config.RealDebridAPIKey,
+		MadokamiUsername: config.MadokamiUsername,
+		MadokamiPassword: config.MadokamiPassword,
 		Komga: komga.Config{
 			URL:            config.Komga.URL,
 			Username:       config.Komga.Username,

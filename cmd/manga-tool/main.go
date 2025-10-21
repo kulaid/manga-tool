@@ -30,6 +30,8 @@ func main() {
 		Port:             util.GetEnv("PORT", "25000"),
 		PromptTimeout:    5 * time.Minute,
 		RealDebridAPIKey: util.GetEnv("REALDEBRID_API_KEY", ""),
+		MadokamiUsername: util.GetEnv("MADOKAMI_USERNAME", ""),
+		MadokamiPassword: util.GetEnv("MADOKAMI_PASSWORD", ""),
 		Komga: komga.Config{
 			URL:            util.GetEnv("KOMGA_URL", ""),
 			Username:       util.GetEnv("KOMGA_USERNAME", ""),

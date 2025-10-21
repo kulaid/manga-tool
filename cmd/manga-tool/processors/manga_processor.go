@@ -23,6 +23,8 @@ type AppConfig struct {
 	TempDir          string
 	PromptTimeout    time.Duration
 	RealDebridAPIKey string
+	MadokamiUsername string
+	MadokamiPassword string
 	Komga            komga.Config
 	Parallelism      int
 }
@@ -297,7 +299,7 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 		proc.Update(10, 100, fmt.Sprintf("Downloading manga from %s...", downloadURL))
 		logger.Info(fmt.Sprintf("DOWNLOAD STARTING: Fetching manga from %s", downloadURL))
 
-		if err := util.DownloadFile(downloadURL, mangaTempDir, downloadUsername, downloadPassword, appConfig.RealDebridAPIKey, logger); err != nil {
+		if err := util.DownloadFile(downloadURL, mangaTempDir, downloadUsername, downloadPassword, appConfig.RealDebridAPIKey, appConfig.MadokamiUsername, appConfig.MadokamiPassword, logger); err != nil {
 			logger.Error(fmt.Sprintf("Download failed: %v", err))
 			processManager.FailProcess(proc.ID, fmt.Sprintf("Download failed: %v", err))
 			return

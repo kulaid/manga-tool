@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -318,13 +319,13 @@ func ExtractAndDeleteRARs(directory string, logger Logger) error {
 }
 
 // DownloadFile downloads a file using wget with optional authentication
-func DownloadFile(url, destDir, username, password, realdebridAPIKey string, logger Logger) error {
-	if url == "" {
+func DownloadFile(downloadURL, destDir, username, password, realdebridAPIKey, madokamiUsername, madokamiPassword string, logger Logger) error {
+	if downloadURL == "" {
 		return fmt.Errorf("download URL is empty")
 	}
 
 	if logger != nil {
-		logger.Info(fmt.Sprintf("Downloading from %s", url))
+		logger.Info(fmt.Sprintf("Downloading from %s", downloadURL))
 	}
 
 	// Create the destination directory if it doesn't exist
@@ -332,8 +333,31 @@ func DownloadFile(url, destDir, username, password, realdebridAPIKey string, log
 		return err
 	}
 
+	// Check if this is a Madokami link and inject credentials if available
+	if strings.Contains(downloadURL, "madokami.al") && madokamiUsername != "" && madokamiPassword != "" {
+		if logger != nil {
+			logger.Info("Detected Madokami link, injecting authentication credentials")
+		}
+
+		// Parse the URL
+		parsedURL, err := url.Parse(downloadURL)
+		if err == nil {
+			// Inject credentials into the URL
+			parsedURL.User = url.UserPassword(madokamiUsername, madokamiPassword)
+			downloadURL = parsedURL.String()
+			if logger != nil {
+				// Log without showing password
+				logger.Info("Madokami credentials injected into URL")
+			}
+		} else {
+			if logger != nil {
+				logger.Warning(fmt.Sprintf("Failed to parse Madokami URL: %v", err))
+			}
+		}
+	}
+
 	// Check if this is a magnet link
-	if realdebrid.IsMagnetLink(url) {
+	if realdebrid.IsMagnetLink(downloadURL) {
 		if logger != nil {
 			logger.Info("Detected magnet link, using Real-Debrid for download")
 		}
@@ -347,7 +371,7 @@ func DownloadFile(url, destDir, username, password, realdebridAPIKey string, log
 		client := realdebrid.NewClient(realdebridAPIKey)
 
 		// Add magnet to Real-Debrid
-		torrentInfo, err := client.AddMagnet(url)
+		torrentInfo, err := client.AddMagnet(downloadURL)
 		if err != nil {
 			return fmt.Errorf("failed to add magnet to Real-Debrid: %v", err)
 		}
@@ -378,18 +402,18 @@ func DownloadFile(url, destDir, username, password, realdebridAPIKey string, log
 		}
 
 		// Get direct download link
-		downloadURL, err := client.GetDownloadLink(torrentInfo.ID)
+		directURL, err := client.GetDownloadLink(torrentInfo.ID)
 		if err != nil {
 			return fmt.Errorf("failed to get download link: %v", err)
 		}
 
 		// Log the direct download link for comparison
 		if logger != nil {
-			logger.Info(fmt.Sprintf("Real-Debrid direct download link: %s", downloadURL))
+			logger.Info(fmt.Sprintf("Real-Debrid direct download link: %s", directURL))
 		}
 
 		// Update URL to use the direct download link
-		url = downloadURL
+		downloadURL = directURL
 	}
 
 	// Base arguments for wget with progress reporting
@@ -413,13 +437,13 @@ func DownloadFile(url, destDir, username, password, realdebridAPIKey string, log
 	}
 
 	// Add the URL as the last argument
-	args = append(args, url)
+	args = append(args, downloadURL)
 
 	cmd := exec.Command("wget", args...)
 	cmd.Dir = destDir
 
 	if logger != nil {
-		logger.Info(fmt.Sprintf("Starting download: %s", url))
+		logger.Info(fmt.Sprintf("Starting download: %s", downloadURL))
 		logger.Info("Download progress will be shown below:")
 	}
 

@@ -17,13 +17,15 @@ import (
 
 // AppConfig holds the application configuration
 type AppConfig struct {
-	MangaBaseDir     string // Base directory for manga library (where processed files are stored)
-	TempDir          string
-	Port             string
-	PromptTimeout    time.Duration
-	Komga            komga.Config
-	RealDebridAPIKey string
-	Parallelism      int // Number of parallel workers for operations, configurable via PARALLELISM
+	MangaBaseDir      string // Base directory for manga library (where processed files are stored)
+	TempDir           string
+	Port              string
+	PromptTimeout     time.Duration
+	Komga             komga.Config
+	RealDebridAPIKey  string
+	MadokamiUsername  string // Username for madokami.al authentication
+	MadokamiPassword  string // Password for madokami.al authentication
+	Parallelism       int    // Number of parallel workers for operations, configurable via PARALLELISM
 }
 
 // createRequiredDirectories creates all necessary directories for the application

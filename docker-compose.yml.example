@@ -9,6 +9,8 @@ services:
       - /etc/localtime:/etc/localtime:ro
     environment:
       - REALDEBRID_API_KEY=
+      - MADOKAMI_USERNAME=
+      - MADOKAMI_PASSWORD=
       - MANGA_BASE_DIR=
       - PORT=25000
       - PARALLELISM=
