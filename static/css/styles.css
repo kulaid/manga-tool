@@ -159,33 +159,6 @@ p {
 }
 
 /* ================================================================
-   Links - Global OLED Styling
-   ================================================================ */
-a {
-    color: var(--text-primary);
-    text-decoration: none;
-    transition: var(--transition);
-}
-
-a:hover {
-    color: var(--primary-color);
-}
-
-a:focus {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
-}
-
-/* Links that should show as primary color */
-a.link-primary {
-    color: var(--primary-color);
-}
-
-a.link-primary:hover {
-    color: var(--primary-hover);
-}
-
-/* ================================================================
    Navigation
    ================================================================ */
 .nav-links {
