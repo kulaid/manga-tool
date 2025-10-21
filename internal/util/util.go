@@ -22,7 +22,7 @@ var (
 	// Regular expressions for identifying manga files
 	ChapterPattern       = regexp.MustCompile(`(?i)(?:chapter|ch[\._\s-]?|c[\._\s-]?)(\d+(?:\.\d+)?)`)
 	FolderChapterPattern = regexp.MustCompile(`(?i)(?:chapter|ch|c)[.\s_-]*(\d+(?:\.\d+)?)(?:\s|-|$|[/\\])`)
-		VolumePattern        = regexp.MustCompile(`(?i)\(v(\d+(?:\.\d+)?)\)|v0*(\d+(?:\.\d+)?)|volume\s+(\d+(?:\.\d+)?)`)
+	VolumePattern        = regexp.MustCompile(`(?i)\(v(\d+(?:\.\d+)?)\)|v0*(\d+(?:\.\d+)?)|volume\s+(\d+(?:\.\d+)?)`)
 	DoublePagePattern    = regexp.MustCompile(`(?i)p\d+\s*-\s*\d+`)
 
 	// File extensions
