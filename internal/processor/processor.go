@@ -933,7 +933,7 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config) e
 				}
 
 				// Clean series name for filesystem
-				cleanSeries := sanitizeForFilesystem(seriesName)
+				// cleanSeries := sanitizeForFilesystem(seriesName)
 
 				// Use volume number as chapter number if chapter_num seems invalid
 				if volNum > 0 && chapterNum < 0 {
@@ -941,6 +941,19 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config) e
 						logger.Warning(fmt.Sprintf("Invalid chapter number %g detected, using volume number %d instead", chapterNum, volNum))
 					}
 					chapterNum = float64(volNum)
+				}
+
+				// Get chapter title
+				var chapterTitle string
+				if config != nil && config.ChapterTitles != nil {
+					// Try from the config
+					if title, exists := config.ChapterTitles[chapterNum]; exists && title != "" {
+						chapterTitle = title
+					} else {
+						chapterTitle = fmt.Sprintf("Chapter %g", chapterNum)
+					}
+				} else {
+					chapterTitle = fmt.Sprintf("Chapter %g", chapterNum)
 				}
 
 				// Create chapter filename - simple format without volume numbers
@@ -958,15 +971,16 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config) e
 					// Extract just the decimal part after the dot
 					parts := strings.Split(fullStr, ".")
 					if len(parts) == 2 {
-						chapterFilename = fmt.Sprintf("%s - %04d.%s.cbz", cleanSeries, intPart, parts[1])
+						chapterFilename = fmt.Sprintf("V%03d Ch%04d %s.%s.cbz", volNum, intPart, chapterTitle, parts[1])
 					} else {
 						// Shouldn't happen, but fallback
-						chapterFilename = fmt.Sprintf("%s - %04d.cbz", cleanSeries, intPart)
+						chapterFilename = fmt.Sprintf("V%03d Ch%04d %s.cbz", volNum, intPart, chapterTitle)
 					}
 				} else {
 					// No fractional part (e.g., 58 -> "0058.cbz")
-					chapterFilename = fmt.Sprintf("%s - %04d.cbz", cleanSeries, intPart)
+					chapterFilename = fmt.Sprintf("V%03d Ch%04d %s.cbz", volNum, intPart, chapterTitle)
 				}
+
 				destPath := filepath.Join(outputDir, chapterFilename) // Check for double-page spread
 				doublePages := false
 				for _, path := range imagePaths {
@@ -994,19 +1008,6 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config) e
 						logger.Info(fmt.Sprintf("Chapter %g: Using volume number %d from image filenames (parent ZIP indicated volume %d)", chapterNum, extractedVolNum, volNum))
 					}
 					volNum = extractedVolNum
-				}
-
-				// Get chapter title
-				var chapterTitle string
-				if config != nil && config.ChapterTitles != nil {
-					// Try from the config
-					if title, exists := config.ChapterTitles[chapterNum]; exists && title != "" {
-						chapterTitle = title
-					} else {
-						chapterTitle = fmt.Sprintf("Chapter %g", chapterNum)
-					}
-				} else {
-					chapterTitle = fmt.Sprintf("Chapter %g", chapterNum)
 				}
 
 				// Create metadata
@@ -1080,8 +1081,7 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config) e
 			logger.Info(fmt.Sprintf("Successfully extracted %d chapters from volume %d", successCount, volNum))
 
 			// Output final filename (for reference in logs)
-			cleanSeries := sanitizeForFilesystem(seriesName)
-			volumeFilename := fmt.Sprintf("%s - v%02d", cleanSeries, volNum)
+			volumeFilename := fmt.Sprintf("V%03d", volNum)
 			logger.Info(fmt.Sprintf("Processed %s into individual chapter files (volume %s)",
 				baseName, volumeFilename))
 		}
