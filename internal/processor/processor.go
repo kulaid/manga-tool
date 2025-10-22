@@ -27,8 +27,6 @@ import (
 
 // Constants for regexes
 var (
-	chapterRegex    = regexp.MustCompile(`(?i)(?:chapter|ch[\._\s-]?|c[\._\s-]?)(\d+(?:\.\d+)?)`)
-	volumeRegex     = regexp.MustCompile(`(?i)v0*(\d+)|volume\s+(\d+)`)
 	doublePageRegex = regexp.MustCompile(`(?i)p\d+\s*-\s*\d+`)
 	imageExtensions = []string{".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 )
@@ -1628,10 +1626,10 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 		chapterNum := util.ExtractChapterNumber(baseName)
 
 		// Priority: If we found a chapter number (including Chapter 0), treat it as a chapter
-		if chapterNum >= 0 && chapterRegex.MatchString(baseName) {
+		if chapterNum >= 0 && util.ChapterPattern.MatchString(baseName) {
 			chapters = append(chapters, file)
 			// Removed excessive "Identified chapter file" logging
-		} else if volumeRegex.MatchString(baseName) || volNum > 0 {
+		} else if util.VolumePattern.MatchString(baseName) || volNum > 0 {
 			// If no chapter number but has volume indicator, treat as volume
 			if volNum == 0 {
 				volNum = 1
@@ -1927,7 +1925,7 @@ func groupFilesByChapter(files []string, logger Logger) map[float64][]string {
 		baseName := filepath.Base(file)
 
 		// Check for explicit chapter markers like "c123" in filename
-		matches := chapterRegex.FindStringSubmatch(baseName)
+		matches := util.ChapterPattern.FindStringSubmatch(baseName)
 		if len(matches) > 1 {
 			chNum, err := strconv.ParseFloat(matches[1], 64)
 			if err == nil {
@@ -1954,7 +1952,7 @@ func groupFilesByChapter(files []string, logger Logger) map[float64][]string {
 			baseDirName := filepath.Base(dir)
 
 			// Look for chapter markers in directory name
-			matches := chapterRegex.FindStringSubmatch(baseDirName)
+			matches := util.ChapterPattern.FindStringSubmatch(baseDirName)
 			if len(matches) > 1 {
 				chNum, err := strconv.ParseFloat(matches[1], 64)
 				if err == nil {
@@ -1965,8 +1963,7 @@ func groupFilesByChapter(files []string, logger Logger) map[float64][]string {
 				}
 			} else {
 				// Check for chapter folder patterns like "Chapter 001 - Title"
-				folderChapterRegex := regexp.MustCompile(`(?i)(?:chapter|ch|c)[.\s_-]*(\d+(?:\.\d+)?)(?:\s|-|$)`)
-				matches = folderChapterRegex.FindStringSubmatch(baseDirName)
+				matches = util.FolderChapterPattern.FindStringSubmatch(baseDirName)
 				if len(matches) > 1 {
 					chNum, err := strconv.ParseFloat(matches[1], 64)
 					if err == nil {
@@ -1987,7 +1984,7 @@ func groupFilesByChapter(files []string, logger Logger) map[float64][]string {
 						continue
 					}
 
-					matches = chapterRegex.FindStringSubmatch(part)
+					matches = util.ChapterPattern.FindStringSubmatch(part)
 					if len(matches) > 1 {
 						chNum, err := strconv.ParseFloat(matches[1], 64)
 						if err == nil {

@@ -27,7 +27,7 @@ var (
 	MangaNumRegex        = regexp.MustCompile(`(?i)(?:.*?)\s+(\d+(?:\.\d+)?)\s*\(\d{4}\)`)
 	GeneralMangaRegex    = regexp.MustCompile(`(?i)(?:.*?)\s+(?:ch(?:apter)?\s+)?(\d+(?:\.\d+)?)`)
 	NumberRegex          = regexp.MustCompile(`\b(\d+(?:\.\d+)?)\b`)
-		ChapterTitlePattern   = regexp.MustCompile(`.*?(?:chapter|ch)\s*\d+\s*[-:]\s*(.*)`)
+	ChapterTitlePattern  = regexp.MustCompile(`.*?(?:chapter|ch)\s*\d+\s*[-:]\s*(.*)`)
 	// File extensions
 	ImageExtensions = []string{".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 	RarExtensions   = []string{".rar", ".cbr"}
