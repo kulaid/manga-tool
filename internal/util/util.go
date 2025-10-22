@@ -628,12 +628,12 @@ func AskToDeleteFilesWithWebInput(directory string, logger Logger, webInput WebI
 		chapterNum := ExtractChapterNumber(baseName)
 
 		// If it's an omnibus or similar, or if no numbers detected, treat as volume 1
-		if VolumePattern.MatchString(baseName) || (volNum == 0 && chapterNum == 0) {
+		if VolumePattern.MatchString(baseName) || (volNum == 0 && chapterNum < 0) {
 			if volNum == 0 {
 				volNum = 1
 			}
 			volumes = append(volumes, FileInfo{Path: file, Number: volNum})
-		} else if chapterNum > 0 {
+		} else if chapterNum >= 0 {
 			chapters = append(chapters, FileInfo{Path: file, Number: chapterNum})
 		} else {
 			// If no chapter number found, also treat as volume 1
