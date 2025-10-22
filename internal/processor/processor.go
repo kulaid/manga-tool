@@ -180,7 +180,7 @@ func createComicInfoXML(fileType string, number float64, seriesName string, volu
 			info.Number = fmt.Sprintf("%g", number)  // Remove trailing zeros for display
 			info.Chapter = fmt.Sprintf("%g", number) // Add chapter number
 			// Add volume information if available
-			if volumeNumber > 0 {
+			if volumeNumber >= 0 {
 				info.Volume = fmt.Sprintf("%d", volumeNumber)
 			}
 			if chapterTitle == "" {
@@ -859,14 +859,6 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config, i
 
 				// Clean series name for filesystem
 				// cleanSeries := sanitizeForFilesystem(seriesName)
-
-				// Use volume number as chapter number if chapter_num seems invalid
-				if volNum > 0 && chapterNum < 0 {
-					if logger != nil {
-						logger.Warning(fmt.Sprintf("Invalid chapter number %g detected, using volume number %d instead", chapterNum, volNum))
-					}
-					chapterNum = float64(volNum)
-				}
 
 				// Get chapter title
 				var chapterTitle string
@@ -1747,7 +1739,7 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 
 				// Process chapter
 				startTime := time.Now()
-				if err := ProcessCBZFile(filePath, "chapter", seriesName, 0, outputDir, config); err != nil {
+				if err := ProcessCBZFile(filePath, "chapter", seriesName, -1, outputDir, config); err != nil {
 					mu.Lock()
 					errorCount++
 					mu.Unlock()
