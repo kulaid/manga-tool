@@ -373,51 +373,69 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 		return
 	}
 
-	// For GET requests, find CBZ files and show the update form
-	mangaPath := filepath.Join(h.Config.MangaBaseDir, mangaTitle)
-	files, err := util.FindCBZFilesFromMount(mangaPath)
-	if err != nil {
-		h.Logger("ERROR", fmt.Sprintf("Error finding CBZ files: %v", err))
-		http.Redirect(w, r, "/manage-manga", http.StatusSeeOther)
-		return
-	}
+       // For GET requests, find CBZ files and folders and show the update form
+       mangaPath := filepath.Join(h.Config.MangaBaseDir, mangaTitle)
+       files, err := util.FindMangaEntriesFromMount(mangaPath)
+       if err != nil {
+	       h.Logger("ERROR", fmt.Sprintf("Error finding manga entries: %v", err))
+	       http.Redirect(w, r, "/manage-manga", http.StatusSeeOther)
+	       return
+       }
 
 	// Sort files by volume/chapter number (natural order)
 	type fileWithNum struct {
-		Index   int
-		Path    string
-		Name    string
-		Size    string
-		VolNum  float64
-		ChapNum float64
+		Index    int
+		Path     string
+		Name     string
+		Size     string
+		VolNum   float64
+		ChapNum  float64
+		IsFolder bool
 	}
 	var filesWithNum []fileWithNum
-	for i, file := range files {
-		fileInfo, err := os.Stat(file)
-		var size string
-		if err == nil {
-			sizeKB := fileInfo.Size() / 1024
-			if sizeKB > 1024 {
-				sizeMB := float64(sizeKB) / 1024
-				size = fmt.Sprintf("%.1f MB", sizeMB)
-			} else {
-				size = fmt.Sprintf("%d KB", sizeKB)
-			}
-		} else {
-			size = "Unknown"
-		}
-		name := filepath.Base(file)
-		vol := util.ExtractVolumeNumber(name)
-		chap := util.ExtractChapterNumber(name)
-		filesWithNum = append(filesWithNum, fileWithNum{
-			Index:   i,
-			Path:    file,
-			Name:    name,
-			Size:    size,
-			VolNum:  vol,
-			ChapNum: chap,
-		})
-	}
+       for i, file := range files {
+	       fileInfo, err := os.Stat(file)
+	       var size string
+	       var name string
+	       isFolder := false
+	       if err == nil {
+		       name = fileInfo.Name()
+		       if fileInfo.IsDir() {
+			       isFolder = true
+			       // Count files inside folder for display
+			       count := 0
+			       filepath.Walk(file, func(_ string, info os.FileInfo, err error) error {
+				       if err == nil && !info.IsDir() {
+					       count++
+				       }
+				       return nil
+			       })
+			       size = fmt.Sprintf("%d files", count)
+		       } else {
+			       sizeKB := fileInfo.Size() / 1024
+			       if sizeKB > 1024 {
+				       sizeMB := float64(sizeKB) / 1024
+				       size = fmt.Sprintf("%.1f MB", sizeMB)
+			       } else {
+				       size = fmt.Sprintf("%d KB", sizeKB)
+			       }
+		       }
+	       } else {
+		       name = filepath.Base(file)
+		       size = "Unknown"
+	       }
+	       vol := util.ExtractVolumeNumber(name)
+	       chap := util.ExtractChapterNumber(name)
+	       filesWithNum = append(filesWithNum, fileWithNum{
+		       Index:   i,
+		       Path:    file,
+		       Name:    name,
+		       Size:    size,
+		       VolNum:  vol,
+		       ChapNum: chap,
+		       IsFolder: isFolder,
+	       })
+       }
 	// Sort: by chapter (if present), then volume, then name (to match delete files prompt)
 	sort.SliceStable(filesWithNum, func(i, j int) bool {
 		if filesWithNum[i].ChapNum >= 0 && filesWithNum[j].ChapNum >= 0 && filesWithNum[i].ChapNum != filesWithNum[j].ChapNum {

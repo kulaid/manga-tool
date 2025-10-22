@@ -14,7 +14,7 @@
         <!-- Header -->
         <div class="manga-header">
             <h1><i class="bi bi-book-half"></i>Manga Tool</h1>
-            <p class="lead">Process manga CBZ files, extract chapters, and update metadata</p>
+            <p class="lead">Process manga CBZ files or folders, extract chapters, and update metadata</p>
         </div>
 
         <!-- Flash Messages -->
@@ -79,7 +79,7 @@
                             <div class="mb-3">
                                 <label for="download_url" class="form-label">URL</label>
                                 <div class="url-input-group">
-                                    <input type="url" class="form-control" id="download_url" name="download_url" placeholder="https://example.com/manga.cbz">
+                                    <input type="url" class="form-control" id="download_url" name="download_url" placeholder="https://example.com/manga.cbz or folder URL">
                                     <a href="#" class="btn btn-secondary btn-sm" id="nyaa-search">
                                         <i class="bi bi-search"></i> Search Nyaa
                                     </a>
@@ -91,8 +91,8 @@
                         <div class="source-option">
                             <h5>Upload Files</h5>
                             <div class="mb-3">
-                                <label for="files" class="form-label">CBZ/ZIP/RAR Files</label>
-                                <input class="form-control" type="file" id="files" name="manga_files" multiple accept=".cbz,.zip,.cbr,.rar">
+                                <label for="files" class="form-label">CBZ/ZIP/RAR Files or Folders</label>
+                                <input class="form-control" type="file" id="files" name="manga_files" multiple webkitdirectory directory accept=".cbz,.zip,.cbr,.rar">
                             </div>
                         </div>
                     </div>
@@ -141,7 +141,7 @@
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="as_folder" name="as_folder" value="true">
                             <label class="form-check-label" for="as_folder">
-                                Create as folders instead of CBZ files
+                                Create as folders instead of CBZ files (if unchecked, creates CBZ files)
                             </label>
                         </div>
 

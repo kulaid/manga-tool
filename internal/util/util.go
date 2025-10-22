@@ -1055,27 +1055,33 @@ func ForceRcloneCache(path string, shouldExist bool, logger Logger) bool {
 	return true
 }
 
-// FindCBZFilesFromMount finds all CBZ files in a mounted directory
-func FindCBZFilesFromMount(dir string) ([]string, error) {
-	var files []string
-
-	// Walk the directory
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Check if it's a regular file with .cbz extension
-		if !info.IsDir() && strings.ToLower(filepath.Ext(path)) == ".cbz" {
-			files = append(files, path)
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return files, nil
+// FindMangaEntriesFromMount finds all CBZ files and folders (excluding hidden/system) in a mounted directory
+func FindMangaEntriesFromMount(dir string) ([]string, error) {
+       var entries []string
+       err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	       if err != nil {
+		       return err
+	       }
+	       // Skip hidden files/folders
+	       name := info.Name()
+	       if len(name) > 0 && name[0] == '.' {
+		       if info.IsDir() {
+			       return filepath.SkipDir
+		       }
+		       return nil
+	       }
+	       // Add .cbz files
+	       if !info.IsDir() && strings.ToLower(filepath.Ext(path)) == ".cbz" {
+		       entries = append(entries, path)
+	       }
+	       // Add folders (not root dir itself)
+	       if info.IsDir() && path != dir {
+		       entries = append(entries, path)
+	       }
+	       return nil
+       })
+       if err != nil {
+	       return nil, err
+       }
+       return entries, nil
 }
