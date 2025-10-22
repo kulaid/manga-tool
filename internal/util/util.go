@@ -24,7 +24,10 @@ var (
 	FolderChapterPattern = regexp.MustCompile(`(?i)(?:chapter|ch|c)[.\s_-]*(\d+(?:\.\d+)?)(?:\s|-|$|[/\\])`)
 	VolumePattern        = regexp.MustCompile(`(?i)\(v(\d+(?:\.\d+)?)\)|v0*(\d+(?:\.\d+)?)|volume\s+(\d+(?:\.\d+)?)`)
 	DoublePagePattern    = regexp.MustCompile(`(?i)p\d+\s*-\s*\d+`)
-
+	MangaNumRegex        = regexp.MustCompile(`(?i)(?:.*?)\s+(\d+(?:\.\d+)?)\s*\(\d{4}\)`)
+	GeneralMangaRegex    = regexp.MustCompile(`(?i)(?:.*?)\s+(?:ch(?:apter)?\s+)?(\d+(?:\.\d+)?)`)
+	NumberRegex          = regexp.MustCompile(`\b(\d+(?:\.\d+)?)\b`)
+		ChapterTitlePattern   = regexp.MustCompile(`.*?(?:chapter|ch)\s*\d+\s*[-:]\s*(.*)`)
 	// File extensions
 	ImageExtensions = []string{".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 	RarExtensions   = []string{".rar", ".cbr"}
@@ -166,12 +169,11 @@ func ExtractChapterNumber(filename string) float64 {
 
 	// For volume files, don't extract numbers in parentheses as they're likely years
 	if VolumePattern.MatchString(filename) {
-		return 0
+		return -1
 	}
 
 	// First, try to match the manga name format: "Manga Name XXX (year)"
-	mangaNumRegex := regexp.MustCompile(`(?i)(?:.*?)\s+(\d+(?:\.\d+)?)\s*\(\d{4}\)`)
-	mangaMatches := mangaNumRegex.FindStringSubmatch(filename)
+	mangaMatches := MangaNumRegex.FindStringSubmatch(filename)
 	if len(mangaMatches) > 1 {
 		num, err := strconv.ParseFloat(mangaMatches[1], 64)
 		if err == nil && num > 0 && num < 1900 {
@@ -180,8 +182,7 @@ func ExtractChapterNumber(filename string) float64 {
 	}
 
 	// Try the general manga name pattern: "series_name chapter_number"
-	generalMangaRegex := regexp.MustCompile(`(?i)(?:.*?)\s+(?:ch(?:apter)?\s+)?(\d+(?:\.\d+)?)`)
-	generalMatches := generalMangaRegex.FindStringSubmatch(filename)
+	generalMatches := GeneralMangaRegex.FindStringSubmatch(filename)
 	if len(generalMatches) > 1 {
 		num, err := strconv.ParseFloat(generalMatches[1], 64)
 		if err == nil && num > 0 {
@@ -193,8 +194,7 @@ func ExtractChapterNumber(filename string) float64 {
 	}
 
 	// If that didn't work, try the original standalone number approach
-	numberRegex := regexp.MustCompile(`\b(\d+(?:\.\d+)?)\b`)
-	matches := numberRegex.FindAllStringSubmatch(filename, -1)
+	matches := NumberRegex.FindAllStringSubmatch(filename, -1)
 	for _, match := range matches {
 		if len(match) > 1 {
 			num, err := strconv.ParseFloat(match[1], 64)
@@ -207,7 +207,7 @@ func ExtractChapterNumber(filename string) float64 {
 		}
 	}
 
-	return 0
+	return -1
 }
 
 // ExtractVolumeNumber extracts a volume number from a filename
@@ -226,7 +226,7 @@ func ExtractVolumeNumber(filename string) float64 {
 
 // ExtractChapterTitle extracts a chapter title from a folder name
 func ExtractChapterTitle(folderName string) string {
-	match := regexp.MustCompile(`.*?(?:chapter|ch)\s*\d+\s*[-:]\s*(.*)`).FindStringSubmatch(folderName)
+	match := ChapterTitlePattern.FindStringSubmatch(folderName)
 	if len(match) > 1 {
 		return strings.TrimSpace(match[1])
 	}

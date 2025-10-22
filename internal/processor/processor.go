@@ -120,42 +120,6 @@ func sanitizeForFilesystem(name string) string {
 
 // Use util.ExtractVolumeNumber for robust extraction
 
-func extractChapterNumber(filename string) float64 {
-	// 1. Check for an explicit chapter marker (e.g. "ch123" or "c123").
-	if matches := chapterRegex.FindStringSubmatch(filename); len(matches) > 1 {
-		if num, err := strconv.ParseFloat(matches[1], 64); err == nil {
-			return num
-		}
-	}
-
-	// 2. If the filename looks like a volume (contains 'v' or "volume"), skip chapter extraction.
-	if volumeRegex.MatchString(filename) {
-		return -1
-	}
-
-	// 3. Try to match a "manga name" format like "Some Title 123 (2024)".
-	mangaRegex := regexp.MustCompile(`(?i)(?:.*?)\s+(\d+(?:\.\d+)?)\s*\(\d{4}\)`)
-	if matches := mangaRegex.FindStringSubmatch(filename); len(matches) > 1 {
-		if num, err := strconv.ParseFloat(matches[1], 64); err == nil && num > 0 && num < 1900 {
-			return num
-		}
-	}
-
-	// 4. Fallback: use a general pattern for a number in the filename.
-	//    This pattern simply looks for a number with 1-4 digits and an optional fraction.
-	generalRegex := regexp.MustCompile(`(?i)\b0*(\d{1,4}(?:\.\d+)?)\b`)
-	if matches := generalRegex.FindStringSubmatch(filename); len(matches) > 1 {
-		if num, err := strconv.ParseFloat(matches[1], 64); err == nil && num >= 0 {
-			// Avoid numbers that look like years (but allow 0 for Chapter 0).
-			if num < 1900 || num > 2100 {
-				return num
-			}
-		}
-	}
-
-	return -1
-}
-
 // getChapterTitle gets the corresponding title for a chapter number
 func getChapterTitle(chapterNum float64, config *Config) string {
 	// Check for nil values
@@ -1091,7 +1055,7 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 			// For oneshots, always force chapter number to 1
 			chapterNum = 1.0
 		} else {
-			chapterNum = extractChapterNumber(baseName)
+			chapterNum = util.ExtractChapterNumber(baseName)
 			if chapterNum < 0 {
 				if logger != nil {
 					logger.Warning(fmt.Sprintf("Could not extract chapter number from %s, using 0", baseName))
@@ -1661,7 +1625,7 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 		}
 
 		volNum := int(util.ExtractVolumeNumber(baseName))
-		chapterNum := extractChapterNumber(baseName)
+		chapterNum := util.ExtractChapterNumber(baseName)
 
 		// Priority: If we found a chapter number (including Chapter 0), treat it as a chapter
 		if chapterNum >= 0 && chapterRegex.MatchString(baseName) {
@@ -1784,7 +1748,7 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 				defer func() { <-sem }() // Release token
 
 				baseName := filepath.Base(filePath)
-				chapterNum := extractChapterNumber(baseName)
+				chapterNum := util.ExtractChapterNumber(baseName)
 
 				// Update status and log - combined into one line
 				if config.Process != nil {
