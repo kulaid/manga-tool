@@ -589,30 +589,33 @@ func CollectMissingChapterTitles(neededChapters map[float64]bool, existingTitles
 	// Sort them
 	sort.Float64s(chapterNumbers)
 
-	// Ask for titles for each chapter
-	for _, ch := range chapterNumbers {
-		// Skip if we already have a title
-		if _, exists := result[ch]; exists {
-			continue
-		}
-
-		// Create a prompt for this chapter
-		promptStr := fmt.Sprintf("Enter title for Chapter %.1f", ch)
-
-		// Modify the prompt if it's a whole number
-		if ch == float64(int(ch)) {
-			promptStr = fmt.Sprintf("Enter title for Chapter %d", int(ch))
-		}
-
-		// Get the title from web input
-		title := webInput(promptStr, "text")
-
-		// If we got a title, add it
-		if title != "" {
-			result[ch] = title
-			logger.Info(fmt.Sprintf("Added title for Chapter %.1f: %s", ch, title))
-		}
-	}
+       skipAll := false
+       for _, ch := range chapterNumbers {
+	       if _, exists := result[ch]; exists {
+		       continue
+	       }
+	       if skipAll {
+		       // Fill with default
+		       result[ch] = fmt.Sprintf("Chapter %.1f", ch)
+		       logger.Info(fmt.Sprintf("Auto-filled title for Chapter %.1f: %s", ch, result[ch]))
+		       continue
+	       }
+	       promptStr := fmt.Sprintf("Enter title for Chapter %.1f", ch)
+	       if ch == float64(int(ch)) {
+		       promptStr = fmt.Sprintf("Enter title for Chapter %d", int(ch))
+	       }
+	       title := webInput(promptStr, "text")
+	       if title == "__SKIP_ALL_TITLES__" {
+		       skipAll = true
+		       result[ch] = fmt.Sprintf("Chapter %.1f", ch)
+		       logger.Info(fmt.Sprintf("User requested skip all. Auto-filled title for Chapter %.1f: %s", ch, result[ch]))
+		       continue
+	       }
+	       if title != "" {
+		       result[ch] = title
+		       logger.Info(fmt.Sprintf("Added title for Chapter %.1f: %s", ch, title))
+	       }
+       }
 
 	return result
 }
