@@ -1526,7 +1526,6 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 		return fmt.Errorf("error writing ComicInfo.xml: %v", err)
 	}
 
-
 	if config != nil && config.AsFolder {
 		// Remove any existing folder at outputPath
 		if err := os.RemoveAll(outputPath); err != nil && !os.IsNotExist(err) {
