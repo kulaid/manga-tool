@@ -200,7 +200,7 @@ func ExtractChapterNumber(filename string) float64 {
 	for _, match := range matches {
 		if len(match) > 1 {
 			num, err := strconv.ParseFloat(match[1], 64)
-			if err == nil && num > 0 {
+			if err == nil && num >= 0 {
 				// Only filter out likely years
 				if num < 1900 || num > 2100 {
 					return num
