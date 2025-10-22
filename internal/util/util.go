@@ -214,16 +214,16 @@ func ExtractChapterNumber(filename string) float64 {
 
 // ExtractVolumeNumber extracts a volume number from a filename
 func ExtractVolumeNumber(filename string) float64 {
-       match := VolumePattern.FindStringSubmatch(filename)
-       // The pattern matches two possible groups: (v01), v01, volume 1, etc.
-       for i := 1; i <= 2 && i < len(match); i++ {
-	       if match[i] != "" {
-		       if num, err := strconv.ParseFloat(match[i], 64); err == nil {
-			       return num
-		       }
-	       }
-       }
-       return -1
+	match := VolumePattern.FindStringSubmatch(filename)
+	// The pattern matches two possible groups: (v01), v01, volume 1, etc.
+	for i := 1; i <= 2 && i < len(match); i++ {
+		if match[i] != "" {
+			if num, err := strconv.ParseFloat(match[i], 64); err == nil {
+				return num
+			}
+		}
+	}
+	return -1
 }
 
 // ExtractChapterTitle extracts a chapter title from a folder name
