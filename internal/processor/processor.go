@@ -1545,20 +1545,20 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 		if err := os.RemoveAll(folderOutputPath); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("error removing existing folder: %v", err)
 		}
-	       // Move tempDir to folderOutputPath (as a folder)
-	       if err := os.Rename(tempDir, folderOutputPath); err != nil {
-		       // If cross-device link error, do recursive copy then remove
-		       if linkErr, ok := err.(*os.LinkError); ok && strings.Contains(linkErr.Error(), "cross-device link") {
-			       if copyErr := copyDir(tempDir, folderOutputPath); copyErr != nil {
-				       return fmt.Errorf("error copying folder across devices: %v", copyErr)
-			       }
-			       if rmErr := os.RemoveAll(tempDir); rmErr != nil {
-				       return fmt.Errorf("error removing temp folder after copy: %v", rmErr)
-			       }
-		       } else {
-			       return fmt.Errorf("error moving folder: %v", err)
-		       }
-	       }
+		// Move tempDir to folderOutputPath (as a folder)
+		if err := os.Rename(tempDir, folderOutputPath); err != nil {
+			// If cross-device link error, do recursive copy then remove
+			if linkErr, ok := err.(*os.LinkError); ok && strings.Contains(linkErr.Error(), "cross-device link") {
+				if copyErr := copyDir(tempDir, folderOutputPath); copyErr != nil {
+					return fmt.Errorf("error copying folder across devices: %v", copyErr)
+				}
+				if rmErr := os.RemoveAll(tempDir); rmErr != nil {
+					return fmt.Errorf("error removing temp folder after copy: %v", rmErr)
+				}
+			} else {
+				return fmt.Errorf("error moving folder: %v", err)
+			}
+		}
 	} else {
 		if config.Process != nil {
 			updateProcessStatus(config.Process, 0, 0, fmt.Sprintf("Creating CBZ file: %s", outputFilename))
