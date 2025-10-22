@@ -1505,10 +1505,13 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 	}
 
 	// Now generate the output filename using the (possibly updated) volume number
-	if fileType == "chapter" {
-		outputFilename = generateChapterFilename(seriesName, chapterNum, volumeNumber, chapterTitle, config.IsOneshot)
-	}
-	outputPath = filepath.Join(outputDir, outputFilename)
+       if fileType == "chapter" {
+	       outputFilename = generateChapterFilename(seriesName, chapterNum, volumeNumber, chapterTitle, func() bool { if config != nil { return config.IsOneshot } else { return false } }())
+	       if config != nil && config.AsFolder && strings.HasSuffix(strings.ToLower(outputFilename), ".cbz") {
+		       outputFilename = outputFilename[:len(outputFilename)-4]
+	       }
+       }
+       outputPath = filepath.Join(outputDir, outputFilename)
 
 	if config.Process != nil {
 		updateProcessStatus(config.Process, 0, 0, fmt.Sprintf("Creating metadata for %s", baseName))
@@ -1527,12 +1530,17 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 	}
 
 	if config != nil && config.AsFolder {
-		// Remove any existing folder at outputPath
-		if err := os.RemoveAll(outputPath); err != nil && !os.IsNotExist(err) {
+		// Remove .cbz extension if present for folder output
+		folderOutputPath := outputPath
+		if strings.HasSuffix(strings.ToLower(folderOutputPath), ".cbz") {
+			folderOutputPath = folderOutputPath[:len(folderOutputPath)-4]
+		}
+		// Remove any existing folder at folderOutputPath
+		if err := os.RemoveAll(folderOutputPath); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("error removing existing folder: %v", err)
 		}
-		// Move tempDir to outputPath (as a folder)
-		if err := os.Rename(tempDir, outputPath); err != nil {
+		// Move tempDir to folderOutputPath (as a folder)
+		if err := os.Rename(tempDir, folderOutputPath); err != nil {
 			return fmt.Errorf("error moving folder: %v", err)
 		}
 	} else {
