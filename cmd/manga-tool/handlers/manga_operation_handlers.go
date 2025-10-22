@@ -416,17 +416,14 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 			ChapNum: chap,
 		})
 	}
-	// Sort: by volume (if present), then chapter, then name
+	// Sort: by chapter (if present), then volume, then name (to match delete files prompt)
 	sort.SliceStable(filesWithNum, func(i, j int) bool {
-		// If both have valid volume numbers, sort by volume
-		if filesWithNum[i].VolNum >= 0 && filesWithNum[j].VolNum >= 0 && filesWithNum[i].VolNum != filesWithNum[j].VolNum {
-			return filesWithNum[i].VolNum < filesWithNum[j].VolNum
-		}
-		// Otherwise, sort by chapter number if both valid
 		if filesWithNum[i].ChapNum >= 0 && filesWithNum[j].ChapNum >= 0 && filesWithNum[i].ChapNum != filesWithNum[j].ChapNum {
 			return filesWithNum[i].ChapNum < filesWithNum[j].ChapNum
 		}
-		// Fallback: sort by name
+		if filesWithNum[i].VolNum >= 0 && filesWithNum[j].VolNum >= 0 && filesWithNum[i].VolNum != filesWithNum[j].VolNum {
+			return filesWithNum[i].VolNum < filesWithNum[j].VolNum
+		}
 		return filesWithNum[i].Name < filesWithNum[j].Name
 	})
 	var fileList []map[string]interface{}
@@ -610,15 +607,15 @@ func (h *MangaOperationHandler) ConfirmDeleteHandler(w http.ResponseWriter, r *h
 			ChapNum: chap,
 		})
 	}
-	   sort.SliceStable(filesWithNum, func(i, j int) bool {
-		   if filesWithNum[i].ChapNum >= 0 && filesWithNum[j].ChapNum >= 0 && filesWithNum[i].ChapNum != filesWithNum[j].ChapNum {
-			   return filesWithNum[i].ChapNum < filesWithNum[j].ChapNum
-		   }
-		   if filesWithNum[i].VolNum >= 0 && filesWithNum[j].VolNum >= 0 && filesWithNum[i].VolNum != filesWithNum[j].VolNum {
-			   return filesWithNum[i].VolNum < filesWithNum[j].VolNum
-		   }
-		   return filesWithNum[i].Name < filesWithNum[j].Name
-	   })
+	sort.SliceStable(filesWithNum, func(i, j int) bool {
+		if filesWithNum[i].ChapNum >= 0 && filesWithNum[j].ChapNum >= 0 && filesWithNum[i].ChapNum != filesWithNum[j].ChapNum {
+			return filesWithNum[i].ChapNum < filesWithNum[j].ChapNum
+		}
+		if filesWithNum[i].VolNum >= 0 && filesWithNum[j].VolNum >= 0 && filesWithNum[i].VolNum != filesWithNum[j].VolNum {
+			return filesWithNum[i].VolNum < filesWithNum[j].VolNum
+		}
+		return filesWithNum[i].Name < filesWithNum[j].Name
+	})
 	var sortedFiles []string
 	for _, f := range filesWithNum {
 		sortedFiles = append(sortedFiles, f.Name)
