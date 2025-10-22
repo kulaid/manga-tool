@@ -1625,13 +1625,10 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 		volNum := int(util.ExtractVolumeNumber(baseName))
 		chapterNum := util.ExtractChapterNumber(baseName)
 
-		if volNum >= 0 {
+		if chapterNum >= 0 {
 			volumes = append(volumes, file)
-		} else if chapterNum >= 0 {
+		} else if volNum >= 0 {
 			chapters = append(chapters, file)
-		} else {
-			// If no chapter or volume number found, treat as volume 1
-			volumes = append(volumes, file)
 		}
 	}
 
