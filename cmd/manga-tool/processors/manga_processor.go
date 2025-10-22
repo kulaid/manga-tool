@@ -45,6 +45,7 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 	deleteOriginals, _ := threadData["delete_originals"].(bool)
 	language, _ := threadData["language"].(string)
 	updateMetadata, _ := threadData["update_metadata"].(bool) // Check if this is a metadata update
+	asFolder, _ := threadData["as_folder"].(bool)
 
 	// Get the current process
 	proc, exists := processManager.GetProcess(currentProcessID)
@@ -469,7 +470,7 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 
 	// Process the files
 	mangaTargetDir = filepath.Join(appConfig.MangaBaseDir, mangaTitle)
-	err = processManga(cbzFiles, mangaTargetDir, mangaTitle, chapterTitles, logger, proc, cancelChan, deleteOriginals, language, isOneshot, appConfig.Parallelism, func(prompt, inputType string) string {
+	err = processManga(cbzFiles, mangaTargetDir, mangaTitle, chapterTitles, logger, proc, cancelChan, deleteOriginals, language, isOneshot, appConfig.Parallelism, asFolder, func(prompt, inputType string) string {
 		return webInput(currentProcessID, prompt, inputType)
 	})
 	if err != nil {
@@ -630,7 +631,7 @@ func CollectMissingChapterTitles(neededChapters map[float64]bool, existingTitles
 // processManga is a replacement for processor.ProcessManga
 func processManga(files []string, targetDir string, mangaTitle string, chapterTitles map[float64]string,
 	logger util.Logger, proc *internal.Process, cancelChan chan struct{}, deleteOriginals bool, language string, isOneshot bool, parallelism int,
-	webInput func(prompt, inputType string) string) error {
+	asFolder bool, webInput func(prompt, inputType string) string) error {
 
 	// Check for cancellation before starting
 	select {
@@ -655,6 +656,7 @@ func processManga(files []string, targetDir string, mangaTitle string, chapterTi
 		DeleteOriginals: deleteOriginals,
 		Language:        language,
 		Parallelism:     parallelism, // Use passed parallelism value
+		AsFolder:        asFolder,
 		// Add function to prompt for chapter titles within volumes
 		GetChapterFunc: func(chapterNum float64) string {
 			// Check for cancellation before prompting user

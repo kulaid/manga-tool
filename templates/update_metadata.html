@@ -91,6 +91,12 @@
                             This is a oneshot (single chapter)
                         </label>
                     </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="as_folder" name="as_folder" value="true" {{if .CachedAsFolder}}checked{{end}}>
+                            <label class="form-check-label" for="as_folder">
+                                Create as folders instead of CBZ files
+                            </label>
+                        </div>
                 </div>
 
                 <!-- File Selection -->

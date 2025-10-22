@@ -294,6 +294,7 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 		mangareaderURL := r.FormValue("mangareader_url")
 		mangadexURL := r.FormValue("mangadex_url")
 		isOneshot := r.FormValue("is_oneshot") == "true"
+		asFolder := r.FormValue("as_folder") == "true"
 
 		// Save all inputted values to cache IMMEDIATELY after form submission
 		// Pass empty string for downloadURL to preserve existing value in cache
@@ -338,6 +339,7 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 			"delete_originals": false,
 			"language":         "en",
 			"update_metadata":  true, // Flag to indicate this is a metadata update
+			"as_folder":        asFolder,
 		}
 
 		// Start metadata update using ProcessManga in a goroutine

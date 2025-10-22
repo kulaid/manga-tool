@@ -87,6 +87,7 @@ type Config struct {
 	Logger          Logger
 	Process         *internal.Process               // Replace Status with Process
 	GetChapterFunc  func(chapterNum float64) string // Function to get chapter title by number
+	AsFolder        bool // If true, output as folders instead of CBZ
 }
 
 // isImageFile checks if a filename is an image
@@ -940,13 +941,34 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config, i
 					continue
 				}
 
-				// Create CBZ file
-				if err := createCBZ(tempDir, destPath); err != nil {
-					if logger != nil {
-						logger.Error(fmt.Sprintf("Error creating chapter CBZ: %v", err))
+
+				// Output as folder or CBZ based on config
+				if config != nil && config.AsFolder {
+					// Move tempDir to destPath (as a folder)
+					if err := os.RemoveAll(destPath); err != nil && !os.IsNotExist(err) {
+						if logger != nil {
+							logger.Error(fmt.Sprintf("Error removing existing folder: %v", err))
+						}
+						os.RemoveAll(tempDir)
+						continue
+					}
+					if err := os.Rename(tempDir, destPath); err != nil {
+						if logger != nil {
+							logger.Error(fmt.Sprintf("Error moving chapter folder: %v", err))
+						}
+						os.RemoveAll(tempDir)
+						continue
+					}
+				} else {
+					// Create CBZ file
+					if err := createCBZ(tempDir, destPath); err != nil {
+						if logger != nil {
+							logger.Error(fmt.Sprintf("Error creating chapter CBZ: %v", err))
+						}
+						os.RemoveAll(tempDir)
+						continue
 					}
 					os.RemoveAll(tempDir)
-					continue
 				}
 
 				mu.Lock()
