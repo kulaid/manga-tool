@@ -21,6 +21,7 @@ const (
 
 // PromptManager handles all user prompts in a centralized way
 type PromptManager struct {
+	skipAllChapterTitles bool
 	activePrompt chan string
 	mu           sync.Mutex
 	logger       Logger
@@ -44,6 +45,16 @@ func NewPromptManager(logger Logger, timeout time.Duration, process *internal.Pr
 
 // ShowPrompt sends a prompt to the client and waits for a response
 func (pm *PromptManager) ShowPrompt(pType PromptType, details string) string {
+	   // If user has chosen to skip all chapter titles, auto-return empty for ChapterTitlePrompt
+	   if pType == ChapterTitlePrompt && pm.skipAllChapterTitles {
+		   if pm.logger != nil {
+			   pm.logger.Info("Skipping chapter title prompt due to skipAllChapterTitles flag")
+		   }
+		   if pm.process != nil {
+			   pm.process.SetWaiting(false, "", "")
+		   }
+		   return ""
+	   }
 	pm.mu.Lock()
 
 	var promptMsg string
@@ -136,6 +147,21 @@ func (pm *PromptManager) ShowCustomPrompt(promptMsg string, inputType string, pr
 
 // SubmitResponse submits a response to the active prompt
 func (pm *PromptManager) SubmitResponse(response string) {
+	   // If user submitted the skip-all-titles magic string, set the skip flag
+	   if response == "__SKIP_ALL_TITLES__" {
+		   pm.skipAllChapterTitles = true
+		   if pm.logger != nil {
+			   pm.logger.Info("User requested to skip all future chapter title prompts.")
+		   }
+		   // Immediately submit empty string as the response for the current prompt
+		   select {
+		   case pm.activePrompt <- "":
+			   // Response submitted as empty
+		   default:
+			   // No active prompt waiting
+		   }
+		   return
+	   }
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 

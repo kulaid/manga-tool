@@ -690,35 +690,52 @@
                 // Create title input for the chapter
                 const formGroup = document.createElement('div');
                 formGroup.className = 'mb-3';
-                
+
                 const label = document.createElement('label');
                 label.className = 'form-label';
                 label.htmlFor = 'chapter-title-input';
                 label.textContent = prompt;
-                
+
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.className = 'form-control';
                 input.id = 'chapter-title-input';
                 input.placeholder = `Enter title for Chapter ${chapterNumber}`;
-                
+
                 // Add keydown handler for Enter key
                 input.addEventListener('keydown', function(e) {
                     if (e.key === 'Enter') {
                         submitChapterTitle();
                     }
                 });
-                
+
                 formGroup.appendChild(label);
                 formGroup.appendChild(input);
                 chapterList.appendChild(formGroup);
-                
-                // Update submit button for chapter titles
+
+                // Button group for submit and skip
+                const btnGroup = document.createElement('div');
+                btnGroup.className = 'd-flex justify-content-end';
+
+                // Skip button
+                const skipBtn = document.createElement('button');
+                skipBtn.type = 'button';
+                skipBtn.className = 'btn btn-outline-secondary me-2';
+                skipBtn.textContent = 'Skip';
+                skipBtn.onclick = function() {
+                    submitPromptResponse("__SKIP_ALL_TITLES__");
+                };
+                btnGroup.appendChild(skipBtn);
+
+                // Submit button (reuse existing)
                 submitTitles.onclick = submitChapterTitle;
-                
+                btnGroup.appendChild(submitTitles);
+
+                chapterList.appendChild(btnGroup);
+
                 // Show UI
                 chapterTitles.style.display = 'block';
-                
+
                 // Focus input
                 setTimeout(() => input.focus(), 100);
             }
