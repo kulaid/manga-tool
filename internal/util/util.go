@@ -22,7 +22,7 @@ var (
 	// Regular expressions for identifying manga files
 	ChapterPattern       = regexp.MustCompile(`(?i)(?:chapter|ch[\._\s-]?|c[\._\s-]?)(\d+(?:\.\d+)?)`)
 	FolderChapterPattern = regexp.MustCompile(`(?i)(?:chapter|ch|c)[.\s_-]*(\d+(?:\.\d+)?)(?:\s|-|$|[/\\])`)
-	VolumePattern        = regexp.MustCompile(`(?i)\(v(\d+(?:\.\d+)?)\)|v0*(\d+(?:\.\d+)?)|volume\s+(\d+(?:\.\d+)?)`)
+	VolumePattern        = regexp.MustCompile(`(?i)(?:\(|\[)?\s*(?:v|vol|vol\.|volume)[\._\s-]*0*(\d+(?:\.\d+)?)(?:\)|\])?|(?:v|vol|vol\.|volume)[\._\s-]*0*(\d+(?:\.\d+)?)(?:\b|$)`)
 	DoublePagePattern    = regexp.MustCompile(`(?i)p\d+\s*-\s*\d+`)
 	MangaNumRegex        = regexp.MustCompile(`(?i)(?:.*?)\s+(\d+(?:\.\d+)?)\s*\(\d{4}\)`)
 	GeneralMangaRegex    = regexp.MustCompile(`(?i)(?:.*?)\s+(?:ch(?:apter)?\s+)?(\d+(?:\.\d+)?)`)
@@ -214,16 +214,16 @@ func ExtractChapterNumber(filename string) float64 {
 
 // ExtractVolumeNumber extracts a volume number from a filename
 func ExtractVolumeNumber(filename string) float64 {
-	match := VolumePattern.FindStringSubmatch(filename)
-	// The pattern matches three possible groups: (v01), v01, volume 1
-	for i := 1; i <= 3 && i < len(match); i++ {
-		if match[i] != "" {
-			if num, err := strconv.ParseFloat(match[i], 64); err == nil {
-				return num
-			}
-		}
-	}
-	return -1
+       match := VolumePattern.FindStringSubmatch(filename)
+       // The pattern matches two possible groups: (v01), v01, volume 1, etc.
+       for i := 1; i <= 2 && i < len(match); i++ {
+	       if match[i] != "" {
+		       if num, err := strconv.ParseFloat(match[i], 64); err == nil {
+			       return num
+		       }
+	       }
+       }
+       return -1
 }
 
 // ExtractChapterTitle extracts a chapter title from a folder name
