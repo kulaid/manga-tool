@@ -178,7 +178,7 @@ func ExtractChapterNumber(filename string) float64 {
 	mangaMatches := MangaNumRegex.FindStringSubmatch(filename)
 	if len(mangaMatches) > 1 {
 		num, err := strconv.ParseFloat(mangaMatches[1], 64)
-		if err == nil && num > 0 && num < 1900 {
+		if err == nil && num >= 0 && num < 1900 {
 			return num
 		}
 	}
@@ -187,7 +187,7 @@ func ExtractChapterNumber(filename string) float64 {
 	generalMatches := GeneralMangaRegex.FindStringSubmatch(filename)
 	if len(generalMatches) > 1 {
 		num, err := strconv.ParseFloat(generalMatches[1], 64)
-		if err == nil && num > 0 {
+		if err == nil && num >= 0 {
 			// Only filter out likely years
 			if num < 1900 || num > 2100 {
 				return num
