@@ -1,6 +1,5 @@
 package handlers
 
-
 import (
 	"encoding/json"
 	"fmt"
@@ -383,11 +382,11 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 
 	// Sort files by volume/chapter number (natural order)
 	type fileWithNum struct {
-		Index int
-		Path string
-		Name string
-		Size string
-		VolNum float64
+		Index   int
+		Path    string
+		Name    string
+		Size    string
+		VolNum  float64
 		ChapNum float64
 	}
 	var filesWithNum []fileWithNum
@@ -409,11 +408,11 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 		vol := util.ExtractVolumeNumber(name)
 		chap := util.ExtractChapterNumber(name)
 		filesWithNum = append(filesWithNum, fileWithNum{
-			Index: i,
-			Path: file,
-			Name: name,
-			Size: size,
-			VolNum: vol,
+			Index:   i,
+			Path:    file,
+			Name:    name,
+			Size:    size,
+			VolNum:  vol,
 			ChapNum: chap,
 		})
 	}
