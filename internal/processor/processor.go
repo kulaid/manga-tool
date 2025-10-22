@@ -1564,7 +1564,7 @@ func generateChapterFilename(seriesName string, chapterNum float64, volNum int, 
 
 	// If no chapter number detected, just use the volume number in the filename
 	if chapterNum == -1 {
-		return fmt.Sprintf("Ch%02d Volume %d.cbz", volNum, volNum)
+		return fmt.Sprintf("Ch%d Volume %d.cbz", volNum, volNum)
 	}
 
 	intPart := int(chapterNum)
@@ -1576,14 +1576,23 @@ func generateChapterFilename(seriesName string, chapterNum float64, volNum int, 
 		fullStr = strings.TrimRight(fullStr, ".")
 		parts := strings.Split(fullStr, ".")
 		if len(parts) == 2 { // e.g., "58.1"
-			return fmt.Sprintf("V%03d Ch%04d.%s %s.cbz", volNum, intPart, parts[1], cleanTitle)
+			if volNum == -1 {
+				return fmt.Sprintf("Ch%d %s.cbz", intPart, chapterTitle)
+			}
+			return fmt.Sprintf("V%d Ch%d.%s %s.cbz", volNum, intPart, parts[1], cleanTitle)
 		}
 		// Fallback for unexpected fractional format
-		return fmt.Sprintf("V%03d Ch%04g %s.cbz", volNum, chapterNum, cleanTitle)
+		if volNum == -1 {
+			return fmt.Sprintf("Ch%g %s.cbz", chapterNum, cleanTitle)
+		}
+		return fmt.Sprintf("V%d Ch%g %s.cbz", volNum, chapterNum, cleanTitle)
 	}
 
 	// No fractional part (e.g., 58)
-	return fmt.Sprintf("V%03d Ch%04d %s.cbz", volNum, intPart, cleanTitle)
+	if volNum == -1 {
+		return fmt.Sprintf("Ch%d %s.cbz", intPart, cleanTitle)
+	}
+	return fmt.Sprintf("V%d Ch%d %s.cbz", volNum, intPart, cleanTitle)
 }
 
 // ProcessBatch processes a batch of files
