@@ -1084,6 +1084,10 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 			logger.Info(fmt.Sprintf("Using optimized processing for volume %d", volumeNumber))
 		}
 
+		// Set output filename and path for single volume
+		outputFilename = generateChapterFilename(seriesName, -1, volumeNumber, fmt.Sprintf("Volume %d", volumeNumber), false)
+		outputPath = filepath.Join(outputDir, outputFilename)
+
 		// Create temp directory just for ComicInfo.xml
 		tempDir, err := os.MkdirTemp("", "manga-processor-*")
 		if err != nil {
