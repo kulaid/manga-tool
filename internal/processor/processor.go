@@ -87,7 +87,7 @@ type Config struct {
 	Logger          Logger
 	Process         *internal.Process               // Replace Status with Process
 	GetChapterFunc  func(chapterNum float64) string // Function to get chapter title by number
-	AsFolder        bool // If true, output as folders instead of CBZ
+	AsFolder        bool                            // If true, output as folders instead of CBZ
 }
 
 // isImageFile checks if a filename is an image
@@ -941,7 +941,6 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config, i
 					continue
 				}
 
-
 				// Output as folder or CBZ based on config
 				if config != nil && config.AsFolder {
 					// Move tempDir to destPath (as a folder)
@@ -1527,13 +1526,24 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 		return fmt.Errorf("error writing ComicInfo.xml: %v", err)
 	}
 
-	if config.Process != nil {
-		updateProcessStatus(config.Process, 0, 0, fmt.Sprintf("Creating CBZ file: %s", outputFilename))
-	}
 
-	// Create CBZ file directly in the destination
-	if err := createCBZ(tempDir, outputPath); err != nil {
-		return fmt.Errorf("error creating CBZ: %v", err)
+	if config != nil && config.AsFolder {
+		// Remove any existing folder at outputPath
+		if err := os.RemoveAll(outputPath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("error removing existing folder: %v", err)
+		}
+		// Move tempDir to outputPath (as a folder)
+		if err := os.Rename(tempDir, outputPath); err != nil {
+			return fmt.Errorf("error moving folder: %v", err)
+		}
+	} else {
+		if config.Process != nil {
+			updateProcessStatus(config.Process, 0, 0, fmt.Sprintf("Creating CBZ file: %s", outputFilename))
+		}
+		// Create CBZ file directly in the destination
+		if err := createCBZ(tempDir, outputPath); err != nil {
+			return fmt.Errorf("error creating CBZ: %v", err)
+		}
 	}
 
 	// Calculate and log elapsed time
