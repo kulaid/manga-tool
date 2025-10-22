@@ -208,7 +208,7 @@ func GetMangaReaderChapters(url string, logger Logger, webInput WebInput) Chapte
 				}
 			}
 		}
-		if chapterNum == 0 {
+		if chapterNum == -1 {
 			continue
 		}
 		// Find <span class="name"> inside <a>
