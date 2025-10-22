@@ -97,18 +97,6 @@ type Config struct {
 	GetChapterFunc  func(chapterNum float64) string // Function to get chapter title by number
 }
 
-// DefaultConfig creates a default configuration
-func DefaultConfig() *Config {
-	return &Config{
-		ChapterTitles:   make(map[float64]string),
-		DeleteOriginals: true,
-		IsManga:         true,
-		IsOneshot:       false,
-		Language:        "en",
-		Parallelism:     0, // Use CPU count automatically
-	}
-}
-
 // isImageFile checks if a filename is an image
 func isImageFile(filename string) bool {
 	lowerName := strings.ToLower(filename)
