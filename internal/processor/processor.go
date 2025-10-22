@@ -1505,13 +1505,19 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 	}
 
 	// Now generate the output filename using the (possibly updated) volume number
-       if fileType == "chapter" {
-	       outputFilename = generateChapterFilename(seriesName, chapterNum, volumeNumber, chapterTitle, func() bool { if config != nil { return config.IsOneshot } else { return false } }())
-	       if config != nil && config.AsFolder && strings.HasSuffix(strings.ToLower(outputFilename), ".cbz") {
-		       outputFilename = outputFilename[:len(outputFilename)-4]
-	       }
-       }
-       outputPath = filepath.Join(outputDir, outputFilename)
+	if fileType == "chapter" {
+		outputFilename = generateChapterFilename(seriesName, chapterNum, volumeNumber, chapterTitle, func() bool {
+			if config != nil {
+				return config.IsOneshot
+			} else {
+				return false
+			}
+		}())
+		if config != nil && config.AsFolder && strings.HasSuffix(strings.ToLower(outputFilename), ".cbz") {
+			outputFilename = outputFilename[:len(outputFilename)-4]
+		}
+	}
+	outputPath = filepath.Join(outputDir, outputFilename)
 
 	if config.Process != nil {
 		updateProcessStatus(config.Process, 0, 0, fmt.Sprintf("Creating metadata for %s", baseName))
