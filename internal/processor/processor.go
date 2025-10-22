@@ -1625,21 +1625,13 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 		volNum := int(util.ExtractVolumeNumber(baseName))
 		chapterNum := util.ExtractChapterNumber(baseName)
 
-		// Priority: If we found a chapter number (including Chapter 0), treat it as a chapter
-		if chapterNum >= 0 && util.ChapterPattern.MatchString(baseName) {
-			chapters = append(chapters, file)
-			// Removed excessive "Identified chapter file" logging
-		} else if util.VolumePattern.MatchString(baseName) || volNum >= 0 {
-			// If no chapter number but has volume indicator, treat as volume
-			if volNum < 0 {
-				volNum = 1
-			}
+		if volNum >= 0 {
 			volumes = append(volumes, file)
-			// Removed excessive "Identified volume file" logging
+		} else if chapterNum >= 0 {
+			chapters = append(chapters, file)
 		} else {
 			// If no chapter or volume number found, treat as volume 1
 			volumes = append(volumes, file)
-			// Removed excessive "Identified volume file" logging
 		}
 	}
 
