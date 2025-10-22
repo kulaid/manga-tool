@@ -40,6 +40,12 @@ type SavedSources map[string]map[string]string
 // ChapterPattern is the regex for matching chapter titles
 var ChapterPattern = regexp.MustCompile(`Chapter (\d+(?:\.\d+)?):?\s*(.+?)$`)
 
+// RedundantPrefixPattern strips redundant "Chapter {number} - " prefix
+var RedundantPrefixPattern = regexp.MustCompile(`^Chapter\s+\d+(?:\.\d+)?\s*-\s*`)
+
+// ID extraction for MangaDex
+var MangaDexIDRegex = regexp.MustCompile(`/title/([0-9a-fA-F-]+)`)
+
 // LoadSources loads saved sources from a JSON file
 func LoadSources(filename string) (SavedSources, error) {
 	sources := make(SavedSources)
@@ -152,7 +158,7 @@ func GetMangaReaderChapters(url string, logger Logger, webInput WebInput) Chapte
 		return chapters
 	}
 
-	// Parse HTML
+	// Efficient single-pass HTML parse for <ul id="en-chapters"> > <li> > <a> > <span class="name">
 	doc, err := html.Parse(resp.Body)
 	if err != nil {
 		if logger != nil {
@@ -161,53 +167,78 @@ func GetMangaReaderChapters(url string, logger Logger, webInput WebInput) Chapte
 		return chapters
 	}
 
-	// Find chapter lists (will only find en-chapters due to ID filtering)
-	chapterLists := findChapterLists(doc)
+	var enChapters *html.Node
+	var f func(*html.Node)
+	f = func(n *html.Node) {
+		if enChapters != nil {
+			return
+		}
+		if n.Type == html.ElementNode && n.Data == "ul" {
+			for _, attr := range n.Attr {
+				if attr.Key == "id" && attr.Val == "en-chapters" {
+					enChapters = n
+					return
+				}
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+	f(doc)
 
-	if len(chapterLists) == 0 {
+	if enChapters == nil {
 		if logger != nil {
-			logger.Error("No chapter lists found")
+			logger.Error("No English chapter list found (ul#en-chapters)")
 		}
 		return chapters
 	}
 
-	// Use the first (and likely only) chapter list found
-	chosenList := chapterLists[0]
-	if logger != nil {
-		logger.Info("Using English chapter list")
-	}
-
-	// Extract chapters from the chosen list
-	chapterItems := findChapterItems(chosenList)
-	for idx, item := range chapterItems {
-		chapterText := getTextContent(item)
-		chapterText = strings.Replace(chapterText, "Read", "", -1)
-		chapterText = strings.TrimSpace(chapterText)
-
-		match := ChapterPattern.FindStringSubmatch(chapterText)
-		if len(match) > 2 {
-			chapterNum, err := strconv.ParseFloat(match[1], 64)
-			if err != nil {
-				chapterNum = float64(idx + 1)
-			}
-
-			chapterTitle := strings.TrimSpace(match[2])
-
-			// Strip out redundant "Chapter {number} - " prefix from the title
-			// This handles cases like "Chapter 383: Chapter 383 - Endpoint"
-			// where we only want "Endpoint"
-			redundantPrefixPattern := regexp.MustCompile(`^Chapter\s+\d+(?:\.\d+)?\s*-\s*`)
-			chapterTitle = redundantPrefixPattern.ReplaceAllString(chapterTitle, "")
-			chapterTitle = strings.TrimSpace(chapterTitle)
-
-			if chapterTitle != "" {
-				chapters[chapterNum] = chapterTitle
-			} else {
-				chapters[chapterNum] = chapterText
-			}
-		} else {
-			chapters[float64(idx+1)] = chapterText
+	for li := enChapters.FirstChild; li != nil; li = li.NextSibling {
+		if li.Type != html.ElementNode || li.Data != "li" {
+			continue
 		}
+		var chapterNum float64
+		var chapterTitle string
+		// Get data-number
+		for _, attr := range li.Attr {
+			if attr.Key == "data-number" {
+				if num, err := strconv.ParseFloat(attr.Val, 64); err == nil {
+					chapterNum = num
+				}
+			}
+		}
+		if chapterNum == 0 {
+			continue
+		}
+		// Find <span class="name"> inside <a>
+		for a := li.FirstChild; a != nil; a = a.NextSibling {
+			if a.Type == html.ElementNode && a.Data == "a" {
+				for span := a.FirstChild; span != nil; span = span.NextSibling {
+					if span.Type == html.ElementNode && span.Data == "span" {
+						for _, attr := range span.Attr {
+							if attr.Key == "class" && strings.Contains(attr.Val, "name") {
+								chapterTitle = getTextContent(span)
+							}
+						}
+					}
+				}
+			}
+		}
+		if chapterTitle == "" {
+			continue
+		}
+		// Clean up title
+		match := ChapterPattern.FindStringSubmatch(chapterTitle)
+		if len(match) > 2 {
+			if num, err := strconv.ParseFloat(match[1], 64); err == nil {
+				chapterNum = num
+			}
+			chapterTitle = strings.TrimSpace(match[2])
+		}
+		chapterTitle = RedundantPrefixPattern.ReplaceAllString(chapterTitle, "")
+		chapterTitle = strings.TrimSpace(chapterTitle)
+		chapters[chapterNum] = chapterTitle
 	}
 
 	if logger != nil {
@@ -238,8 +269,7 @@ func GetMangaDexChapters(url string, logger Logger) ChapterTitles {
 	chapters := make(ChapterTitles)
 
 	// Extract manga ID from URL
-	idRegex := regexp.MustCompile(`/title/([0-9a-fA-F-]+)`)
-	match := idRegex.FindStringSubmatch(url)
+	match := MangaDexIDRegex.FindStringSubmatch(url)
 	if len(match) < 2 {
 		if logger != nil {
 			logger.Error("Invalid MangaDex link. Could not extract manga ID.")
@@ -396,112 +426,14 @@ func CollectMissingChapterTitles(neededChapters []float64, mangaTitle string, ex
 	return result
 }
 
-// Helper functions for HTML parsing
-
-// findChapterLists finds all chapter lists in the HTML
-func findChapterLists(n *html.Node) []*html.Node {
-	var lists []*html.Node
-
-	if n.Type == html.ElementNode && n.Data == "ul" {
-		hasLangChapters := false
-		elementID := ""
-
-		// Check both class and id attributes
-		for _, attr := range n.Attr {
-			if attr.Key == "class" {
-				classes := strings.Fields(attr.Val)
-				for _, class := range classes {
-					if class == "lang-chapters" {
-						hasLangChapters = true
-						break
-					}
-				}
-			}
-			if attr.Key == "id" {
-				elementID = attr.Val
-			}
-		}
-
-		// Only include the English chapter list (id="en-chapters")
-		// Ignore other language lists (id="ja-chapters", etc.)
-		if hasLangChapters {
-			if elementID == "en-chapters" {
-				lists = append(lists, n)
-			}
-			// Skip other language-specific lists
-		} else {
-			// For non-language-specific lists, check for general classes
-			for _, attr := range n.Attr {
-				if attr.Key == "class" {
-					classes := strings.Fields(attr.Val)
-					for _, class := range classes {
-						if class == "ulclear" || class == "reading-list" {
-							lists = append(lists, n)
-							break
-						}
-					}
-				}
-			}
-		}
-	}
-
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		lists = append(lists, findChapterLists(c)...)
-	}
-
-	return lists
-}
-
-// findChapterItems finds all chapter items in a list
-func findChapterItems(n *html.Node) []*html.Node {
-	var items []*html.Node
-
-	if n.Type == html.ElementNode && n.Data == "li" {
-		for _, attr := range n.Attr {
-			if attr.Key == "class" {
-				classes := strings.Fields(attr.Val)
-				for _, class := range classes {
-					if class == "item" || class == "reading-item" || class == "chapter-item" {
-						items = append(items, n)
-						break
-					}
-				}
-			}
-		}
-	}
-
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		items = append(items, findChapterItems(c)...)
-	}
-
-	return items
-}
-
-// getTextContent gets all text content from a node
+// getTextContent gets all text content from a node (used by the parser)
 func getTextContent(n *html.Node) string {
 	if n.Type == html.TextNode {
 		return n.Data
 	}
-
 	var text string
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		text += getTextContent(c)
 	}
-
 	return text
-}
-
-// Helper functions for Go 1.16 compatibility
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
