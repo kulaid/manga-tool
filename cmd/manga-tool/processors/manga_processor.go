@@ -590,39 +590,39 @@ func CollectMissingChapterTitles(neededChapters map[float64]bool, existingTitles
 	sort.Float64s(chapterNumbers)
 
 	skipAll := false
-       for _, ch := range chapterNumbers {
-	       if _, exists := result[ch]; exists {
-		       continue
-	       }
-	       var defaultTitle string
-	       if ch == float64(int(ch)) {
-		       defaultTitle = fmt.Sprintf("Chapter %d", int(ch))
-	       } else {
-		       defaultTitle = fmt.Sprintf("Chapter %.1f", ch)
-	       }
-	       if skipAll {
-		       result[ch] = defaultTitle
-		       logger.Info(fmt.Sprintf("Auto-filled title for Chapter %v: %s", ch, result[ch]))
-		       continue
-	       }
-	       promptStr := defaultTitle
-	       if ch != float64(int(ch)) {
-		       promptStr = fmt.Sprintf("Enter title for Chapter %.1f", ch)
-	       } else {
-		       promptStr = fmt.Sprintf("Enter title for Chapter %d", int(ch))
-	       }
-	       title := webInput(promptStr, "text")
-	       if title == "__SKIP_ALL_TITLES__" {
-		       skipAll = true
-		       result[ch] = defaultTitle
-		       logger.Info(fmt.Sprintf("User requested skip all. Auto-filled title for Chapter %v: %s", ch, result[ch]))
-		       continue
-	       }
-	       if title != "" {
-		       result[ch] = title
-		       logger.Info(fmt.Sprintf("Added title for Chapter %v: %s", ch, title))
-	       }
-       }
+	for _, ch := range chapterNumbers {
+		if _, exists := result[ch]; exists {
+			continue
+		}
+		var defaultTitle string
+		if ch == float64(int(ch)) {
+			defaultTitle = fmt.Sprintf("Chapter %d", int(ch))
+		} else {
+			defaultTitle = fmt.Sprintf("Chapter %.1f", ch)
+		}
+		if skipAll {
+			result[ch] = defaultTitle
+			logger.Info(fmt.Sprintf("Auto-filled title for Chapter %v: %s", ch, result[ch]))
+			continue
+		}
+		promptStr := defaultTitle
+		if ch != float64(int(ch)) {
+			promptStr = fmt.Sprintf("Enter title for Chapter %.1f", ch)
+		} else {
+			promptStr = fmt.Sprintf("Enter title for Chapter %d", int(ch))
+		}
+		title := webInput(promptStr, "text")
+		if title == "__SKIP_ALL_TITLES__" {
+			skipAll = true
+			result[ch] = defaultTitle
+			logger.Info(fmt.Sprintf("User requested skip all. Auto-filled title for Chapter %v: %s", ch, result[ch]))
+			continue
+		}
+		if title != "" {
+			result[ch] = title
+			logger.Info(fmt.Sprintf("Added title for Chapter %v: %s", ch, title))
+		}
+	}
 
 	return result
 }
