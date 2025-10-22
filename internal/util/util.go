@@ -28,10 +28,13 @@ var (
 	GeneralMangaRegex    = regexp.MustCompile(`(?i)(?:.*?)\s+(?:ch(?:apter)?\s+)?(\d+(?:\.\d+)?)`)
 	NumberRegex          = regexp.MustCompile(`\b(\d+(?:\.\d+)?)\b`)
 	ChapterTitlePattern  = regexp.MustCompile(`.*?(?:chapter|ch)\s*\d+\s*[-:]\s*(.*)`)
-	// File extensions
+	PagePattern          = regexp.MustCompile(`\s+-\s+p(\d+(?:-p\d+)?)`)
+	NumPattern           = regexp.MustCompile(`^(\d+)`)
+	// File Stuff
 	ImageExtensions = []string{".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 	RarExtensions   = []string{".rar", ".cbr"}
 	ZipExtensions   = []string{".zip", ".cbz"}
+	SanitizeRegex   = regexp.MustCompile(`[<>:"/\\|?*\t\n]`)
 )
 
 // Logger interface for handling logs
@@ -141,8 +144,7 @@ func IsArchive(filename string) bool {
 // SanitizePath sanitizes a path by replacing invalid characters.
 func SanitizePath(path string) string {
 	// Replace special characters with underscores
-	re := regexp.MustCompile(`[<>:"/\\|?*\t\n]`)
-	sanitized := re.ReplaceAllString(path, "_")
+	sanitized := SanitizeRegex.ReplaceAllString(path, "_")
 	// Trim leading/trailing whitespace
 	return strings.TrimSpace(sanitized)
 }

@@ -25,12 +25,6 @@ import (
 	// "net/http"
 )
 
-// Constants for regexes
-var (
-	doublePageRegex = regexp.MustCompile(`(?i)p\d+\s*-\s*\d+`)
-	imageExtensions = []string{".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
-)
-
 /*
 Performance Profiling Guide:
 
@@ -98,7 +92,7 @@ type Config struct {
 // isImageFile checks if a filename is an image
 func isImageFile(filename string) bool {
 	lowerName := strings.ToLower(filename)
-	for _, ext := range imageExtensions {
+	for _, ext := range util.ImageExtensions {
 		if strings.HasSuffix(lowerName, ext) {
 			return true
 		}
@@ -814,7 +808,6 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config, i
 				}
 
 				// Sort image paths (helps ensure proper page order)
-				// Pre-compute page numbers for all files to avoid repeated regex operations
 				type fileInfo struct {
 					path     string
 					pageNum  int
@@ -823,16 +816,12 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config, i
 
 				fileInfos := make([]fileInfo, len(imagePaths))
 
-				// Compile regex patterns once outside the loop
-				pagePatternRegex := regexp.MustCompile(`\s+-\s+p(\d+(?:-p\d+)?)`)
-				numPatternRegex := regexp.MustCompile(`^(\d+)`)
-
 				for i, path := range imagePaths {
 					filename := filepath.Base(path)
 					pageNum := 0
 
 					// Look for "pXXX" pattern in filename
-					if match := pagePatternRegex.FindStringSubmatch(filename); len(match) > 1 {
+					if match := util.PagePattern.FindStringSubmatch(filename); len(match) > 1 {
 						// For spread pages like "p006-p007", just use the first number
 						pageStr := strings.Split(match[1], "-")[0]
 						if num, err := strconv.Atoi(pageStr); err == nil {
@@ -840,7 +829,7 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config, i
 						}
 					} else {
 						// Try to extract numbers like 001.jpg, 002.jpg
-						if match := numPatternRegex.FindStringSubmatch(filename); len(match) > 1 {
+						if match := util.NumPattern.FindStringSubmatch(filename); len(match) > 1 {
 							if num, err := strconv.Atoi(match[1]); err == nil {
 								pageNum = num
 							}
@@ -933,7 +922,7 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config, i
 				destPath := filepath.Join(outputDir, chapterFilename)
 				doublePages := false
 				for _, path := range imagePaths {
-					if doublePageRegex.MatchString(filepath.Base(path)) {
+					if util.DoublePagePattern.MatchString(filepath.Base(path)) {
 						doublePages = true
 						break
 					}
@@ -1300,9 +1289,6 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 	// chapterTitle is already declared earlier in this function
 	doublePages := false
 
-	// Pre-compile regex once
-	doublePageRegexCompiled := doublePageRegex
-
 	// Use a more efficient approach with WalkDir instead of Walk
 	err = filepath.WalkDir(tempDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -1337,7 +1323,7 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 			imagePaths = append(imagePaths, path)
 
 			// Check for double-page spread in the same pass
-			if !doublePages && doublePageRegexCompiled.MatchString(fileName) {
+			if !doublePages && util.DoublePagePattern.MatchString(fileName) {
 				doublePages = true
 			}
 		}
@@ -1359,16 +1345,11 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 		updateProcessStatus(config.Process, 0, 0, fmt.Sprintf("Sorting %d images from %s", len(imagePaths), baseName))
 	}
 
-	// Pre-compute page numbers for all files to avoid repeated regex operations
 	type fileInfo struct {
 		path     string
 		pageNum  int
 		filename string
 	}
-
-	// Pre-compile regex patterns outside the loop
-	pagePatternRegex := regexp.MustCompile(`\s+-\s+p(\d+(?:-p\d+)?)`)
-	numPatternRegex := regexp.MustCompile(`^(\d+)`)
 
 	fileInfos := make([]fileInfo, len(imagePaths))
 
@@ -1409,7 +1390,7 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 				pageNum := 0
 
 				// Look for "pXXX" pattern in filename
-				if match := pagePatternRegex.FindStringSubmatch(filename); len(match) > 1 {
+				if match := util.PagePattern.FindStringSubmatch(filename); len(match) > 1 {
 					// For spread pages like "p006-p007", just use the first number
 					pageStr := strings.Split(match[1], "-")[0]
 					if num, err := strconv.Atoi(pageStr); err == nil {
@@ -1417,7 +1398,7 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 					}
 				} else {
 					// Try to extract numbers like 001.jpg, 002.jpg
-					if match := numPatternRegex.FindStringSubmatch(filename); len(match) > 1 {
+					if match := util.NumPattern.FindStringSubmatch(filename); len(match) > 1 {
 						if num, err := strconv.Atoi(match[1]); err == nil {
 							pageNum = num
 						}
@@ -1575,9 +1556,15 @@ func generateChapterFilename(seriesName string, chapterNum float64, volNum int, 
 		return fmt.Sprintf("%s.cbz", sanitizeForFilesystem(seriesName))
 	}
 
+	cleanTitle := sanitizeForFilesystem(chapterTitle)
+
+	// If no chapter number detected, just use the volume number in the filename
+	if chapterNum == -1 {
+		return fmt.Sprintf("Ch%02d Volume %d.cbz", volNum, volNum)
+	}
+
 	intPart := int(chapterNum)
 	fracPart := chapterNum - float64(intPart)
-	cleanTitle := sanitizeForFilesystem(chapterTitle)
 
 	if fracPart > 0.001 { // Use a small epsilon to avoid floating point errors
 		// Has a fractional part (e.g., 58.1)
@@ -1997,8 +1984,7 @@ func groupFilesByChapter(files []string, logger Logger) map[float64][]string {
 					}
 
 					// Try folder chapter pattern
-					folderChapterRegex := regexp.MustCompile(`(?i)(?:chapter|ch|c)[.\s_-]*(\d+(?:\.\d+)?)(?:\s|-|$)`)
-					matches = folderChapterRegex.FindStringSubmatch(part)
+					matches = util.FolderChapterPattern.FindStringSubmatch(part)
 					if len(matches) > 1 {
 						chNum, err := strconv.ParseFloat(matches[1], 64)
 						if err == nil {
