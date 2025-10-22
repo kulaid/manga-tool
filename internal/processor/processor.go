@@ -567,7 +567,7 @@ func ProcessVolumeFile(filePath, outputDir, seriesName string, config *Config, i
 	// Extract volume number
 	volNum := int(util.ExtractVolumeNumber(baseName))
 
-	if volNum == 0 {
+	if volNum < 0 {
 		if logger != nil {
 			logger.Error(fmt.Sprintf("Could not extract volume number from %s", baseName))
 		}
@@ -1477,16 +1477,16 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 
 	// Always extract volume number from image filenames for chapters, but only update if a valid one is found
 	if fileType == "chapter" {
-		foundVolNum := 0
+		foundVolNum := -1
 		for _, imgPath := range imagePaths {
 			imgBaseName := filepath.Base(imgPath)
 			imgVolNum := int(util.ExtractVolumeNumber(imgBaseName))
-			if imgVolNum > 0 {
+			if imgVolNum >= 0 {
 				foundVolNum = imgVolNum
 				break // Use the first valid volume number found
 			}
 		}
-		if foundVolNum > 0 {
+		if foundVolNum >= 0 {
 			volumeNumber = foundVolNum
 		}
 	}
@@ -1620,9 +1620,9 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 		if chapterNum >= 0 && util.ChapterPattern.MatchString(baseName) {
 			chapters = append(chapters, file)
 			// Removed excessive "Identified chapter file" logging
-		} else if util.VolumePattern.MatchString(baseName) || volNum > 0 {
+		} else if util.VolumePattern.MatchString(baseName) || volNum >= 0 {
 			// If no chapter number but has volume indicator, treat as volume
-			if volNum == 0 {
+			if volNum < 0 {
 				volNum = 1
 			}
 			volumes = append(volumes, file)

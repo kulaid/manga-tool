@@ -223,7 +223,7 @@ func ExtractVolumeNumber(filename string) float64 {
 			}
 		}
 	}
-	return 0
+	return -1
 }
 
 // ExtractChapterTitle extracts a chapter title from a folder name
@@ -630,8 +630,8 @@ func AskToDeleteFilesWithWebInput(directory string, logger Logger, webInput WebI
 		chapterNum := ExtractChapterNumber(baseName)
 
 		// If it's an omnibus or similar, or if no numbers detected, treat as volume 1
-		if VolumePattern.MatchString(baseName) || (volNum == 0 && chapterNum < 0) {
-			if volNum == 0 {
+		if VolumePattern.MatchString(baseName) || (volNum < 0 && chapterNum < 0) {
+			if volNum < 0 {
 				volNum = 1
 			}
 			volumes = append(volumes, FileInfo{Path: file, Number: volNum})
@@ -679,9 +679,6 @@ func AskToDeleteFilesWithWebInput(directory string, logger Logger, webInput WebI
 		fileList.WriteString("VOLUMES:\n")
 		for i, file := range sortedFiles[:len(volumes)] {
 			volNum := ExtractVolumeNumber(filepath.Base(file))
-			if volNum == 0 {
-				volNum = 1
-			}
 			fileList.WriteString(fmt.Sprintf("%d. [v%02.0f] %s\n", i+1, volNum, filepath.Base(file)))
 		}
 	}
