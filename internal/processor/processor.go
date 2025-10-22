@@ -2093,9 +2093,3 @@ func (a *Analyzer) ScanDirectory(dir string) ([]*internal.Series, error) {
 	}
 	return series, nil
 }
-
-// ProcessManga processes a manga series
-func ProcessManga(series *internal.Series, config *Config) error {
-	// This is a mock implementation for the debug script
-	return nil
-}
