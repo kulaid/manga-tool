@@ -1,5 +1,6 @@
 package handlers
 
+
 import (
 	"encoding/json"
 	"fmt"
@@ -7,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -379,13 +381,20 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 		return
 	}
 
-	// Format files for display
-	var fileList []map[string]interface{}
+	// Sort files by volume/chapter number (natural order)
+	type fileWithNum struct {
+		Index int
+		Path string
+		Name string
+		Size string
+		VolNum float64
+		ChapNum float64
+	}
+	var filesWithNum []fileWithNum
 	for i, file := range files {
 		fileInfo, err := os.Stat(file)
 		var size string
 		if err == nil {
-			// Format file size
 			sizeKB := fileInfo.Size() / 1024
 			if sizeKB > 1024 {
 				sizeMB := float64(sizeKB) / 1024
@@ -396,12 +405,38 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 		} else {
 			size = "Unknown"
 		}
-
+		name := filepath.Base(file)
+		vol := util.ExtractVolumeNumber(name)
+		chap := util.ExtractChapterNumber(name)
+		filesWithNum = append(filesWithNum, fileWithNum{
+			Index: i,
+			Path: file,
+			Name: name,
+			Size: size,
+			VolNum: vol,
+			ChapNum: chap,
+		})
+	}
+	// Sort: by volume (if present), then chapter, then name
+	sort.SliceStable(filesWithNum, func(i, j int) bool {
+		// If both have valid volume numbers, sort by volume
+		if filesWithNum[i].VolNum >= 0 && filesWithNum[j].VolNum >= 0 && filesWithNum[i].VolNum != filesWithNum[j].VolNum {
+			return filesWithNum[i].VolNum < filesWithNum[j].VolNum
+		}
+		// Otherwise, sort by chapter number if both valid
+		if filesWithNum[i].ChapNum >= 0 && filesWithNum[j].ChapNum >= 0 && filesWithNum[i].ChapNum != filesWithNum[j].ChapNum {
+			return filesWithNum[i].ChapNum < filesWithNum[j].ChapNum
+		}
+		// Fallback: sort by name
+		return filesWithNum[i].Name < filesWithNum[j].Name
+	})
+	var fileList []map[string]interface{}
+	for idx, f := range filesWithNum {
 		fileList = append(fileList, map[string]interface{}{
-			"ID":   i,
-			"Name": filepath.Base(file),
-			"Path": file,
-			"Size": size,
+			"ID":   idx,
+			"Name": f.Name,
+			"Path": f.Path,
+			"Size": f.Size,
 		})
 	}
 
@@ -555,10 +590,39 @@ func (h *MangaOperationHandler) ConfirmDeleteHandler(w http.ResponseWriter, r *h
 			filePath := filepath.Join(mangaPath, file)
 			info, err := os.Stat(filePath)
 			if err == nil {
-				// Convert bytes to MB
 				totalSizeMB += float64(info.Size()) / (1024 * 1024)
 			}
 		}
+	}
+
+	// Sort files by volume/chapter number (natural order)
+	type fileWithNum struct {
+		Name    string
+		VolNum  float64
+		ChapNum float64
+	}
+	var filesWithNum []fileWithNum
+	for _, name := range files {
+		vol := util.ExtractVolumeNumber(name)
+		chap := util.ExtractChapterNumber(name)
+		filesWithNum = append(filesWithNum, fileWithNum{
+			Name:    name,
+			VolNum:  vol,
+			ChapNum: chap,
+		})
+	}
+	sort.SliceStable(filesWithNum, func(i, j int) bool {
+		if filesWithNum[i].VolNum >= 0 && filesWithNum[j].VolNum >= 0 && filesWithNum[i].VolNum != filesWithNum[j].VolNum {
+			return filesWithNum[i].VolNum < filesWithNum[j].VolNum
+		}
+		if filesWithNum[i].ChapNum >= 0 && filesWithNum[j].ChapNum >= 0 && filesWithNum[i].ChapNum != filesWithNum[j].ChapNum {
+			return filesWithNum[i].ChapNum < filesWithNum[j].ChapNum
+		}
+		return filesWithNum[i].Name < filesWithNum[j].Name
+	})
+	var sortedFiles []string
+	for _, f := range filesWithNum {
+		sortedFiles = append(sortedFiles, f.Name)
 	}
 
 	// Format the size with 2 decimal places
@@ -571,7 +635,7 @@ func (h *MangaOperationHandler) ConfirmDeleteHandler(w http.ResponseWriter, r *h
 		"MangaTitle":  mangaTitle,
 		"file_count":  fileCount,
 		"size_mb":     sizeFormatted,
-		"files":       files,
+		"files":       sortedFiles,
 		"Year":        time.Now().Year(),
 		"CurrentYear": time.Now().Year(),
 	}
