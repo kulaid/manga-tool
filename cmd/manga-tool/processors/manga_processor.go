@@ -119,7 +119,7 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 				logger.Warning("Process cancelled/failed during metadata update - restoring original files...")
 
 				// Find files in temp directory
-				   tempFiles, err := util.FindMangaEntriesFromMount(mangaTempDir)
+				tempFiles, err := util.FindMangaEntriesFromMount(mangaTempDir)
 				if err == nil && len(tempFiles) > 0 {
 					logger.Info(fmt.Sprintf("Restoring %d files from temp to %s", len(tempFiles), mangaTargetDir))
 
@@ -161,22 +161,22 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 		default:
 		}
 
-	       // Find existing CBZ files and folders in the target directory
-	       mangaTargetDir = filepath.Join(appConfig.MangaBaseDir, mangaTitle)
-	       existingFiles, err := util.FindMangaEntriesFromMount(mangaTargetDir)
-	       if err != nil {
-		       logger.Error(fmt.Sprintf("Error finding manga entries: %v", err))
-		       processManager.FailProcess(proc.ID, fmt.Sprintf("Error finding manga entries: %v", err))
-		       return
-	       }
+		// Find existing CBZ files and folders in the target directory
+		mangaTargetDir = filepath.Join(appConfig.MangaBaseDir, mangaTitle)
+		existingFiles, err := util.FindMangaEntriesFromMount(mangaTargetDir)
+		if err != nil {
+			logger.Error(fmt.Sprintf("Error finding manga entries: %v", err))
+			processManager.FailProcess(proc.ID, fmt.Sprintf("Error finding manga entries: %v", err))
+			return
+		}
 
-	       if len(existingFiles) == 0 {
-		       logger.Error("No CBZ files or folders found for this manga")
-		       processManager.FailProcess(proc.ID, "No CBZ files or folders found for this manga")
-		       return
-	       }
+		if len(existingFiles) == 0 {
+			logger.Error("No CBZ files or folders found for this manga")
+			processManager.FailProcess(proc.ID, "No CBZ files or folders found for this manga")
+			return
+		}
 
-	       logger.Info(fmt.Sprintf("Found %d CBZ files or folders to reprocess", len(existingFiles)))
+		logger.Info(fmt.Sprintf("Found %d CBZ files or folders to reprocess", len(existingFiles)))
 
 		// Create a manga-specific temp directory for reprocessing
 		mangaTempDir = filepath.Join(appConfig.TempDir, fmt.Sprintf("manga_%s_%s", mangaTitle, proc.ID))
@@ -325,26 +325,26 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 		}
 	}
 
-       // Find CBZ files and folders (STEP 3 - this is where metadata reprocess starts)
-       proc.Update(30, 100, "Finding CBZ files and folders...")
-       logger.Info(fmt.Sprintf("Starting file/folder search in directory: %s", mangaTempDir))
-       logger.Info(fmt.Sprintf("Directory exists: %v", util.DirExists(mangaTempDir)))
-       logger.Info(fmt.Sprintf("Directory permissions: %v", util.GetDirPermissions(mangaTempDir)))
+	// Find CBZ files and folders (STEP 3 - this is where metadata reprocess starts)
+	proc.Update(30, 100, "Finding CBZ files and folders...")
+	logger.Info(fmt.Sprintf("Starting file/folder search in directory: %s", mangaTempDir))
+	logger.Info(fmt.Sprintf("Directory exists: %v", util.DirExists(mangaTempDir)))
+	logger.Info(fmt.Sprintf("Directory permissions: %v", util.GetDirPermissions(mangaTempDir)))
 
-       mangaEntries, err := util.FindMangaEntriesFromMount(mangaTempDir)
-       if err != nil {
-	       logger.Error(fmt.Sprintf("Error finding files/folders: %v", err))
-	       processManager.FailProcess(proc.ID, fmt.Sprintf("Error finding files/folders: %v", err))
-	       return
-       }
+	mangaEntries, err := util.FindMangaEntriesFromMount(mangaTempDir)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Error finding files/folders: %v", err))
+		processManager.FailProcess(proc.ID, fmt.Sprintf("Error finding files/folders: %v", err))
+		return
+	}
 
-       if len(mangaEntries) == 0 {
-	       logger.Error("No CBZ files or folders found in the upload directory")
-	       processManager.FailProcess(proc.ID, "No CBZ files or folders found in the upload directory")
-	       return
-       }
+	if len(mangaEntries) == 0 {
+		logger.Error("No CBZ files or folders found in the upload directory")
+		processManager.FailProcess(proc.ID, "No CBZ files or folders found in the upload directory")
+		return
+	}
 
-       logger.Info(fmt.Sprintf("Found %d CBZ files or folders to process", len(mangaEntries)))
+	logger.Info(fmt.Sprintf("Found %d CBZ files or folders to process", len(mangaEntries)))
 
 	// Ask user which files to delete before processing
 	proc.Update(35, 100, "Select files to delete (if needed)...")
@@ -369,8 +369,8 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 		discoveredTitles = make(map[float64]string)
 		logger.Info("Oneshot mode: Skipping file analysis, will use chapter 1")
 	} else {
-			   neededChapters, discoveredTitles = processor.AnalyzeChaptersNeeded(mangaEntries, logger)
-			   logger.Info(fmt.Sprintf("Found %d chapters that might need titles", len(neededChapters)))
+		neededChapters, discoveredTitles = processor.AnalyzeChaptersNeeded(mangaEntries, logger)
+		logger.Info(fmt.Sprintf("Found %d chapters that might need titles", len(neededChapters)))
 	}
 
 	// Initialize chapter titles map
@@ -463,16 +463,16 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 	logger.Info("Starting manga processor...")
 
 	// Debug information
-       logger.Info(fmt.Sprintf("Number of files/folders to process: %d", len(mangaEntries)))
-       for i, file := range mangaEntries {
-	       logger.Info(fmt.Sprintf("Entry %d: %s", i+1, file))
-       }
+	logger.Info(fmt.Sprintf("Number of files/folders to process: %d", len(mangaEntries)))
+	for i, file := range mangaEntries {
+		logger.Info(fmt.Sprintf("Entry %d: %s", i+1, file))
+	}
 
-       // Process the files/folders
-       mangaTargetDir = filepath.Join(appConfig.MangaBaseDir, mangaTitle)
-       err = processManga(mangaEntries, mangaTargetDir, mangaTitle, chapterTitles, logger, proc, cancelChan, deleteOriginals, language, isOneshot, appConfig.Parallelism, asFolder, func(prompt, inputType string) string {
-	       return webInput(currentProcessID, prompt, inputType)
-       })
+	// Process the files/folders
+	mangaTargetDir = filepath.Join(appConfig.MangaBaseDir, mangaTitle)
+	err = processManga(mangaEntries, mangaTargetDir, mangaTitle, chapterTitles, logger, proc, cancelChan, deleteOriginals, language, isOneshot, appConfig.Parallelism, asFolder, func(prompt, inputType string) string {
+		return webInput(currentProcessID, prompt, inputType)
+	})
 	if err != nil {
 		logger.Error(fmt.Sprintf("Error processing manga: %v", err))
 		processManager.FailProcess(proc.ID, fmt.Sprintf("Error processing manga: %v", err))
