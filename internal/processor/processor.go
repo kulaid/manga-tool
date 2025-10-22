@@ -142,7 +142,7 @@ func extractChapterNumber(filename string) float64 {
 
 	// 2. If the filename looks like a volume (contains 'v' or "volume"), skip chapter extraction.
 	if volumeRegex.MatchString(filename) {
-		return 0
+		return -1
 	}
 
 	// 3. Try to match a "manga name" format like "Some Title 123 (2024)".
@@ -165,7 +165,7 @@ func extractChapterNumber(filename string) float64 {
 		}
 	}
 
-	return 0
+	return -1
 }
 
 // getChapterTitle gets the corresponding title for a chapter number
@@ -1104,7 +1104,7 @@ func ProcessCBZFile(filePath, fileType, seriesName string, volumeNumber int, out
 			chapterNum = 1.0
 		} else {
 			chapterNum = extractChapterNumber(baseName)
-			if chapterNum == 0 {
+			if chapterNum < 0 {
 				if logger != nil {
 					logger.Warning(fmt.Sprintf("Could not extract chapter number from %s, using 0", baseName))
 				}
@@ -1676,7 +1676,7 @@ func ProcessBatch(files []string, seriesName, outputDir string, config *Config) 
 		chapterNum := extractChapterNumber(baseName)
 
 		// Priority: If we found a chapter number (including Chapter 0), treat it as a chapter
-		if chapterNum >= 0 && (chapterRegex.MatchString(baseName) || chapterNum > 0) {
+		if chapterNum >= 0 && chapterRegex.MatchString(baseName) {
 			chapters = append(chapters, file)
 			// Removed excessive "Identified chapter file" logging
 		} else if volumeRegex.MatchString(baseName) || volNum > 0 {
