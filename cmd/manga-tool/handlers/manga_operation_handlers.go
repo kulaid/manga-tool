@@ -643,7 +643,13 @@ func (h *MangaOperationHandler) ConfirmDeleteHandler(w http.ResponseWriter, r *h
 		"CurrentYear": time.Now().Year(),
 	}
 
-	renderTemplate(w, h.Templates, "confirm_delete.html", data, h.Logger)
+	// Register hasSuffix for template use
+	tmpl := h.Templates.Funcs(template.FuncMap{
+		"hasSuffix": func(s, suffix string) bool {
+			return strings.HasSuffix(s, suffix)
+		},
+	})
+	renderTemplate(w, tmpl, "confirm_delete.html", data, h.Logger)
 }
 
 // DeleteFilesHandler handles selective deletion of manga files
