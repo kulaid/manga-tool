@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"manga-tool/internal/util"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -35,94 +34,45 @@ func AnalyzeChaptersNeeded(cbzFiles []string, logger util.Logger) (map[float64]b
 			chapterDirs := make(map[string]float64)
 			chapterTitles := make(map[float64]string)
 
-			// First, collect all directories and check for chapter markers
+			// First, collect all directories
 			for _, f := range reader.File {
 				if f.FileInfo().IsDir() {
 					directories[f.Name] = true
-
-					// Try to extract chapter number and title from directory
-					dirName := filepath.Base(f.Name)
-					// Look for chapter number
-					chMatches := util.ChapterPattern.FindStringSubmatch(dirName)
-					if len(chMatches) > 1 {
-						if chapterNum, err := strconv.ParseFloat(chMatches[1], 64); err == nil {
-							// Store directory and chapter number
-							chapterDirs[f.Name] = chapterNum
-							neededChapters[chapterNum] = true
-
-							// Try to extract title
-							title := extractTitleFromDirName(dirName)
-							if title != "" {
-								chapterTitles[chapterNum] = title
-								discoveredTitles[chapterNum] = title
-								logger.Info(fmt.Sprintf("Found title for chapter %g: %s", chapterNum, title))
-							}
-						}
-					}
-					continue
 				}
-
 				// Also collect parent directories
 				dirPath := filepath.Dir(f.Name)
 				if dirPath != "." && dirPath != "" {
 					directories[dirPath] = true
 				}
+			}
 
-				if util.IsImageFile(f.Name) {
-					// Check filename for chapter markers
-					matches := util.ChapterPattern.FindStringSubmatch(filepath.Base(f.Name))
-					if len(matches) > 1 {
-						if chapterNum, err := strconv.ParseFloat(matches[1], 64); err == nil {
-							neededChapters[chapterNum] = true
-						}
+			// Now, for each unique directory, check for chapter markers
+			for dir := range directories {
+				dirName := filepath.Base(dir)
+				chapterNum := -1.0
+				found := false
+				folderMatch := util.FolderChapterPattern.FindStringSubmatch(dirName)
+				if len(folderMatch) > 1 {
+					chapterNum, _ = strconv.ParseFloat(folderMatch[1], 64)
+					found = true
+				} else {
+					numMatch := util.NumPattern.FindStringSubmatch(dirName)
+					if len(numMatch) > 1 {
+						chapterNum, _ = strconv.ParseFloat(numMatch[1], 64)
+						found = true
 					}
-
-					// Check path for folder-based chapters
-					dirPath := filepath.Dir(f.Name)
-					if dirPath != "." {
-						// Analyze each directory component
-						parts := strings.Split(dirPath, "/")
-						for _, part := range parts {
-							if part == "" {
-								continue
-							}
-
-							// Try regular chapter pattern
-							matches := util.ChapterPattern.FindStringSubmatch(part)
-							if len(matches) > 1 {
-								if chapterNum, err := strconv.ParseFloat(matches[1], 64); err == nil {
-									neededChapters[chapterNum] = true
-									chapterDirs[dirPath] = chapterNum
-
-									// Try to extract title from directory
-									title := extractTitleFromDirName(part)
-									if title != "" {
-										chapterTitles[chapterNum] = title
-										discoveredTitles[chapterNum] = title
-										logger.Info(fmt.Sprintf("Found title for chapter %g: %s", chapterNum, title))
-									}
-								}
-								continue
-							}
-
-							// Try folder pattern which is more specific for directory names
-							matches = util.FolderChapterPattern.FindStringSubmatch(part)
-							if len(matches) > 1 {
-								if chapterNum, err := strconv.ParseFloat(matches[1], 64); err == nil {
-									neededChapters[chapterNum] = true
-									chapterDirs[dirPath] = chapterNum
-
-									// Try to extract title from directory
-									title := extractTitleFromDirName(part)
-									if title != "" {
-										chapterTitles[chapterNum] = title
-										discoveredTitles[chapterNum] = title
-										logger.Info(fmt.Sprintf("Found title for chapter %g: %s", chapterNum, title))
-									}
-								}
-							}
-						}
+				}
+				if found {
+					chapterDirs[dir] = chapterNum
+					neededChapters[chapterNum] = true
+					title := ""
+					titleMatch := util.ChapterTitlePattern.FindStringSubmatch(dirName)
+					if len(titleMatch) > 2 {
+						title = strings.TrimSpace(titleMatch[2])
 					}
+					chapterTitles[chapterNum] = title
+					discoveredTitles[chapterNum] = title
+					logger.Info(fmt.Sprintf("Found chapter %g: %s", chapterNum, title))
 				}
 			}
 
@@ -140,11 +90,9 @@ func AnalyzeChaptersNeeded(cbzFiles []string, logger util.Logger) (map[float64]b
 		}
 	}
 
-	// Second pass: check individual chapter files
+	// Check non-volume files or chapter markers
 	for _, filePath := range cbzFiles {
 		baseName := filepath.Base(filePath)
-
-		// Only check chapter files (not volumes)
 		if !util.VolumePattern.MatchString(baseName) {
 			chapterNum := float64(util.ExtractChapterNumber(baseName))
 			if chapterNum >= 0 {
@@ -171,29 +119,4 @@ func AnalyzeChaptersNeeded(cbzFiles []string, logger util.Logger) (map[float64]b
 	}
 
 	return neededChapters, discoveredTitles
-}
-
-// Helper function to extract title from directory name
-func extractTitleFromDirName(dirName string) string {
-	// Try different patterns to extract title part
-
-	// Common pattern: "Chapter X - Title"
-	re1 := regexp.MustCompile(`(?i)Chapter\s+\d+\s*[-:]\s*(.+)$`)
-	if match := re1.FindStringSubmatch(dirName); len(match) > 1 {
-		return strings.TrimSpace(match[1])
-	}
-
-	// Pattern for "Ch X - Title"
-	re2 := regexp.MustCompile(`(?i)Ch\.?\s+\d+\s*[-:]\s*(.+)$`)
-	if match := re2.FindStringSubmatch(dirName); len(match) > 1 {
-		return strings.TrimSpace(match[1])
-	}
-
-	// Generic pattern: just get what's after the hyphen if there is one
-	re3 := regexp.MustCompile(`\d+\s*[-:]\s*(.+)$`)
-	if match := re3.FindStringSubmatch(dirName); len(match) > 1 {
-		return strings.TrimSpace(match[1])
-	}
-
-	return ""
 }

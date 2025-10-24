@@ -20,14 +20,14 @@ import (
 // Constants
 var (
 	// Regular expressions for identifying manga files
-	ChapterPattern       = regexp.MustCompile(`(?i)(?:chapter|ch[\._\s-]?|c[\._\s-]?)(\d+(?:\.\d+)?)`)
-	FolderChapterPattern = regexp.MustCompile(`(?i)(?:chapter|ch|c)[.\s_-]*(\d+(?:\.\d+)?)(?:\s|-|$|[/\\])`)
+	ChapterPattern       = regexp.MustCompile(`(?i)(?:chapter|ch[\._\s-]?|c[\._\s-]?|number[\._\s-]?)(\d+(?:\.\d+)?)`)
+	FolderChapterPattern = regexp.MustCompile(`(?i)(?:chapter|ch|c|number)?[.\s_-]*(\d+(?:\.\d+)?)(?:\s|-|$|[/\\])`)
 	VolumePattern        = regexp.MustCompile(`(?i)(?:\(|\[)?\s*(?:v|vol|vol\.|volume)[\._\s-]*0*(\d+(?:\.\d+)?)(?:\)|\])?|(?:v|vol|vol\.|volume)[\._\s-]*0*(\d+(?:\.\d+)?)(?:\b|$)`)
 	DoublePagePattern    = regexp.MustCompile(`(?i)p\d+\s*-\s*\d+`)
 	MangaNumRegex        = regexp.MustCompile(`(?i)(?:.*?)\s+(\d+(?:\.\d+)?)\s*\(\d{4}\)`)
 	GeneralMangaRegex    = regexp.MustCompile(`(?i)(?:.*?)\s+(?:ch(?:apter)?\s+)?(\d+(?:\.\d+)?)`)
 	NumberRegex          = regexp.MustCompile(`\b(\d+(?:\.\d+)?)\b`)
-	ChapterTitlePattern  = regexp.MustCompile(`.*?(?:chapter|ch)\s*\d+\s*[-:]\s*(.*)`)
+	ChapterTitlePattern  = regexp.MustCompile(`(?i)(?:chapter|ch)?\s*(\d+)\s*[-_:]?\s*(.*\S)`)
 	PagePattern          = regexp.MustCompile(`\s+-\s+p(\d+(?:-p\d+)?)`)
 	NumPattern           = regexp.MustCompile(`^(\d+)`)
 	// File Stuff
@@ -224,15 +224,6 @@ func ExtractVolumeNumber(filename string) float64 {
 		}
 	}
 	return -1
-}
-
-// ExtractChapterTitle extracts a chapter title from a folder name
-func ExtractChapterTitle(folderName string) string {
-	match := ChapterTitlePattern.FindStringSubmatch(folderName)
-	if len(match) > 1 {
-		return strings.TrimSpace(match[1])
-	}
-	return ""
 }
 
 // FindCBZFiles finds all CBZ files in a directory
