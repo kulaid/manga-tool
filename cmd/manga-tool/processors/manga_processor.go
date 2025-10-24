@@ -191,7 +191,6 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 			return
 		}
 
-		logger.Info(fmt.Sprintf("Found %d CBZ files or folders to reprocess (selected)", len(filesToMove)))
 
 		// Create a manga-specific temp directory for reprocessing
 		mangaTempDir = filepath.Join(appConfig.TempDir, fmt.Sprintf("manga_%s_%s", mangaTitle, proc.ID))
@@ -205,11 +204,8 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 
 		// MOVE only selected files from Komga directory to temp directory in parallel
 		proc.Update(10, 100, "Moving files to temp directory...")
-		logger.Info(fmt.Sprintf("Moving %d files from %s to %s", len(filesToMove), mangaTargetDir, mangaTempDir))
 
 		movedCount := 0
-		startTime := time.Now()
-		logger.Info(fmt.Sprintf("Starting batch move of %d selected files...", len(filesToMove)))
 		for _, srcFile := range filesToMove {
 			dstFile := filepath.Join(mangaTempDir, filepath.Base(srcFile))
 			// Copy the file
@@ -224,20 +220,16 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 			}
 			movedCount++
 		}
-		elapsed := time.Since(startTime)
-		logger.Info(fmt.Sprintf("Successfully moved %d/%d files in %v (batch move)", movedCount, len(filesToMove), elapsed.Round(time.Millisecond)))
 
 		// Don't delete temp files during processing - we need them to reprocess
 		deleteOriginals = false
 
 		// Files moved to temp. Continue with normal flow from step 3 (Find CBZ files)
 		// After processing, new files with new names will be in the target directory
-		logger.Info("Files moved to temp directory. Continuing with normal processing flow...")
 	}
 
 	// Regular manga processing
 	proc.Update(0, 100, "Starting manga processing...")
-	logger.Info(fmt.Sprintf("Starting manga processing for %s", mangaTitle))
 
 	// Create a manga-specific temp directory (if not already created by metadata update mode)
 	if mangaTempDir == "" {
@@ -248,7 +240,6 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 	if _, err := os.Stat(mangaTempDir); err == nil {
 		// Directory already exists (from metadata update mode)
 		tempDirAlreadyExists = true
-		logger.Info(fmt.Sprintf("Using existing temp directory: %s", mangaTempDir))
 	} else {
 		// Create new temp directory
 		if err := os.MkdirAll(mangaTempDir, 0755); err != nil {
@@ -321,9 +312,6 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 
 	// Find CBZ files and folders (STEP 3 - this is where metadata reprocess starts)
 	proc.Update(30, 100, "Finding CBZ files and folders...")
-	logger.Info(fmt.Sprintf("Starting file/folder search in directory: %s", mangaTempDir))
-	logger.Info(fmt.Sprintf("Directory exists: %v", util.DirExists(mangaTempDir)))
-	logger.Info(fmt.Sprintf("Directory permissions: %v", util.GetDirPermissions(mangaTempDir)))
 
 	mangaEntries, err := util.FindMangaEntriesFromMount(mangaTempDir)
 	if err != nil {
@@ -332,22 +320,6 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 		return
 	}
 
-	// If selected_files is present in threadData, filter mangaEntries to only those selected
-	if val, ok := threadData["selected_files"]; ok {
-		if arr, ok := val.([]string); ok {
-			selectedFilesSet := make(map[string]struct{}, len(arr))
-			for _, f := range arr {
-				selectedFilesSet[f] = struct{}{}
-			}
-			filtered := make([]string, 0, len(selectedFilesSet))
-			for _, entry := range mangaEntries {
-				if _, ok := selectedFilesSet[entry]; ok {
-					filtered = append(filtered, entry)
-				}
-			}
-			mangaEntries = filtered
-		}
-	}
 
 	if len(mangaEntries) == 0 {
 		logger.Error("No CBZ files or folders found in the upload directory (after filtering by selection)")
