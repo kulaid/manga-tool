@@ -599,68 +599,41 @@ func (h *MangaOperationHandler) ConfirmDeleteHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	// Get manga files and info for GET request
+	// Get manga folders (top-level only) and info for GET request
 	mangaPath := filepath.Join(h.Config.MangaBaseDir, mangaTitle)
 
-	// Get all files and calculate size
-	files, err := h.getFiles(mangaPath)
-	fileCount := len(files)
+	// List only top-level directories (folders) inside mangaPath
+	dirs := []string{}
+	entries, err := os.ReadDir(mangaPath)
 	totalSizeMB := 0.0
-
 	if err != nil {
-		h.Logger("WARNING", fmt.Sprintf("Error getting files for %s: %v", mangaTitle, err))
+		h.Logger("WARNING", fmt.Sprintf("Error reading directory for %s: %v", mangaTitle, err))
 	} else {
-		// Calculate total size
-		for _, file := range files {
-			filePath := filepath.Join(mangaPath, file)
-			info, err := os.Stat(filePath)
-			if err == nil {
-				totalSizeMB += float64(info.Size()) / (1024 * 1024)
+		for _, entry := range entries {
+			if entry.IsDir() {
+				dirs = append(dirs, entry.Name())
+				// Optionally, sum up the size of all files in this folder
+				folderPath := filepath.Join(mangaPath, entry.Name())
+				filepath.Walk(folderPath, func(_ string, info os.FileInfo, err error) error {
+					if err == nil && !info.IsDir() {
+						totalSizeMB += float64(info.Size()) / (1024 * 1024)
+					}
+					return nil
+				})
 			}
 		}
 	}
 
-	// Sort files by volume/chapter number (natural order)
-	type fileWithNum struct {
-		Name    string
-		VolNum  float64
-		ChapNum float64
-	}
-	var filesWithNum []fileWithNum
-	for _, name := range files {
-		vol := util.ExtractVolumeNumber(name)
-		chap := util.ExtractChapterNumber(name)
-		filesWithNum = append(filesWithNum, fileWithNum{
-			Name:    name,
-			VolNum:  vol,
-			ChapNum: chap,
-		})
-	}
-	sort.SliceStable(filesWithNum, func(i, j int) bool {
-		if filesWithNum[i].ChapNum >= 0 && filesWithNum[j].ChapNum >= 0 && filesWithNum[i].ChapNum != filesWithNum[j].ChapNum {
-			return filesWithNum[i].ChapNum < filesWithNum[j].ChapNum
-		}
-		if filesWithNum[i].VolNum >= 0 && filesWithNum[j].VolNum >= 0 && filesWithNum[i].VolNum != filesWithNum[j].VolNum {
-			return filesWithNum[i].VolNum < filesWithNum[j].VolNum
-		}
-		return filesWithNum[i].Name < filesWithNum[j].Name
-	})
-	var sortedFiles []string
-	for _, f := range filesWithNum {
-		sortedFiles = append(sortedFiles, f.Name)
-	}
-
-	// Format the size with 2 decimal places
+	fileCount := len(dirs)
 	sizeFormatted := fmt.Sprintf("%.2f", totalSizeMB)
 
-	// Render template for GET request
 	data := map[string]interface{}{
 		"Title":       "Confirm Delete " + mangaTitle,
 		"title":       mangaTitle,
 		"MangaTitle":  mangaTitle,
 		"file_count":  fileCount,
 		"size_mb":     sizeFormatted,
-		"files":       sortedFiles,
+		"files":       dirs,
 		"Year":        time.Now().Year(),
 		"CurrentYear": time.Now().Year(),
 	}
@@ -688,78 +661,77 @@ func (h *MangaOperationHandler) DeleteFilesHandler(w http.ResponseWriter, r *htt
 			return
 		}
 
-		// Get selected files
-		selectedFiles := r.Form["files"]
-		if len(selectedFiles) == 0 {
+		// Get selected folders (top-level only)
+		selectedFolders := r.Form["files"]
+		if len(selectedFolders) == 0 {
 			http.Redirect(w, r, "/delete-files/"+mangaTitle, http.StatusSeeOther)
 			return
 		}
 
-		// Start a process to delete the files
+		// Start a process to delete the folders
 		proc := h.ProcessManager.NewProcess("delete-files", mangaTitle)
-		h.Logger("INFO", fmt.Sprintf("Starting file deletion for %s (Process ID: %s)", mangaTitle, proc.ID))
+		h.Logger("INFO", fmt.Sprintf("Starting folder deletion for %s (Process ID: %s)", mangaTitle, proc.ID))
 
 		// Start deletion in a goroutine
 		go func() {
-			// Process cleanup when finished
 			defer func() {
 				if r := recover(); r != nil {
-					h.Logger("ERROR", fmt.Sprintf("Panic in file deletion: %v", r))
+					h.Logger("ERROR", fmt.Sprintf("Panic in folder deletion: %v", r))
 					h.ProcessManager.FailProcess(proc.ID, fmt.Sprintf("Panic: %v", r))
 				}
 			}()
 
-			// Build a list of files for deletion
-			var filesToDelete []string
-			for _, file := range selectedFiles {
-				filePath := filepath.Join(mangaPath, file)
+			var foldersToDelete []string
+			for _, folder := range selectedFolders {
+				folderPath := filepath.Join(mangaPath, folder)
 
-				// Ensure filePath is under mangaPath for security
-				if !strings.HasPrefix(filePath, mangaPath) {
-					h.Logger("WARNING", fmt.Sprintf("Security check failed: %s is not in %s", filePath, mangaPath))
+				// Ensure folderPath is under mangaPath for security
+				if !strings.HasPrefix(folderPath, mangaPath) {
+					h.Logger("WARNING", fmt.Sprintf("Security check failed: %s is not in %s", folderPath, mangaPath))
 					continue
 				}
 
-				if _, err := os.Stat(filePath); err != nil {
-					h.Logger("WARNING", fmt.Sprintf("Error getting file info for %s: %v", filePath, err))
+				info, err := os.Stat(folderPath)
+				if err != nil {
+					h.Logger("WARNING", fmt.Sprintf("Error getting folder info for %s: %v", folderPath, err))
 					continue
 				}
 
-				filesToDelete = append(filesToDelete, filePath)
-				h.Logger("INFO", fmt.Sprintf("Queueing for deletion: %s", filePath))
+				if !info.IsDir() {
+					h.Logger("WARNING", fmt.Sprintf("Not a directory: %s", folderPath))
+					continue
+				}
+
+				foldersToDelete = append(foldersToDelete, folderPath)
+				h.Logger("INFO", fmt.Sprintf("Queueing for deletion: %s", folderPath))
 			}
 
-			// Delete selected files
-			proc.Update(0, len(filesToDelete)+1, "Deleting files")
+			proc.Update(0, len(foldersToDelete)+1, "Deleting folders")
 
 			deletedCount := 0
 
-			// Delete each file
-			for i, filePath := range filesToDelete {
-				if err := os.Remove(filePath); err != nil {
-					h.Logger("WARNING", fmt.Sprintf("Error removing file %s: %v", filePath, err))
+			for i, folderPath := range foldersToDelete {
+				if err := os.RemoveAll(folderPath); err != nil {
+					h.Logger("WARNING", fmt.Sprintf("Error removing folder %s: %v", folderPath, err))
 				} else {
-					h.Logger("INFO", fmt.Sprintf("Deleted file: %s", filePath))
+					h.Logger("INFO", fmt.Sprintf("Deleted folder: %s", folderPath))
 					deletedCount++
 				}
 
-				proc.Update(i+1, len(filesToDelete)+1, fmt.Sprintf("Deleted %d of %d files", i+1, len(filesToDelete)))
+				proc.Update(i+1, len(foldersToDelete)+1, fmt.Sprintf("Deleted %d of %d folders", i+1, len(foldersToDelete)))
 			}
 
-			// Proceed to Komga refresh
-			proc.Update(len(filesToDelete)+1, len(filesToDelete)+1, "Refreshing Komga libraries")
+			proc.Update(len(foldersToDelete)+1, len(foldersToDelete)+1, "Refreshing Komga libraries")
 
-			// Create Komga client and refresh libraries
 			komgaClient := createKomgaClient(h.Config, proc.ID, h.Logger)
 
 			if komgaClient.RefreshAllLibraries() {
-				h.Logger("INFO", "Successfully refreshed Komga libraries")
-			} else {
-				h.Logger("WARNING", "Failed to refresh Komga libraries")
-			}
+					h.Logger("INFO", "Successfully refreshed Komga libraries")
+				} else {
+					h.Logger("WARNING", "Failed to refresh Komga libraries")
+				}
 
-			// Report completion
-			h.Logger("INFO", fmt.Sprintf("Successfully deleted %d files", deletedCount))
+			h.Logger("INFO", fmt.Sprintf("Successfully deleted %d folders", deletedCount))
 
 			h.ProcessManager.CompleteProcess(proc.ID)
 		}()
@@ -775,18 +747,23 @@ func (h *MangaOperationHandler) DeleteFilesHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// Get list of files for GET request
-	files, err := h.getFiles(mangaPath)
+	// Get list of top-level folders for GET request
+	dirs := []string{}
+	entries, err := os.ReadDir(mangaPath)
 	if err != nil {
 		http.Redirect(w, r, "/manage-manga", http.StatusSeeOther)
 		return
 	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			dirs = append(dirs, entry.Name())
+		}
+	}
 
-	// Render template
 	data := map[string]interface{}{
-		"Title":      "Delete Files for " + mangaTitle,
+		"Title":      "Delete Folders for " + mangaTitle,
 		"MangaTitle": mangaTitle,
-		"Files":      files,
+		"Files":      dirs,
 		"Year":       time.Now().Year(),
 	}
 
