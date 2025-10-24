@@ -29,6 +29,7 @@ type AppConfig struct {
 	Parallelism      int
 }
 
+
 // Process manga function - this is where the manga processor would be called
 func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, forceCancelChan chan struct{},
 	appConfig AppConfig, processManager *internal.ProcessManager, currentProcessID string,
@@ -331,20 +332,39 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 	logger.Info(fmt.Sprintf("Directory exists: %v", util.DirExists(mangaTempDir)))
 	logger.Info(fmt.Sprintf("Directory permissions: %v", util.GetDirPermissions(mangaTempDir)))
 
-	mangaEntries, err := util.FindMangaEntriesFromMount(mangaTempDir)
-	if err != nil {
-		logger.Error(fmt.Sprintf("Error finding files/folders: %v", err))
-		processManager.FailProcess(proc.ID, fmt.Sprintf("Error finding files/folders: %v", err))
-		return
-	}
 
-	if len(mangaEntries) == 0 {
-		logger.Error("No CBZ files or folders found in the upload directory")
-		processManager.FailProcess(proc.ID, "No CBZ files or folders found in the upload directory")
-		return
-	}
+       mangaEntries, err := util.FindMangaEntriesFromMount(mangaTempDir)
+       if err != nil {
+	       logger.Error(fmt.Sprintf("Error finding files/folders: %v", err))
+	       processManager.FailProcess(proc.ID, fmt.Sprintf("Error finding files/folders: %v", err))
+	       return
+       }
 
-	logger.Info(fmt.Sprintf("Found %d CBZ files or folders to process", len(mangaEntries)))
+
+       // If selected_files is present in threadData, filter mangaEntries to only those selected
+       if val, ok := threadData["selected_files"]; ok {
+	       if arr, ok := val.([]string); ok {
+		       selectedFilesSet := make(map[string]struct{}, len(arr))
+		       for _, f := range arr {
+			       selectedFilesSet[f] = struct{}{}
+		       }
+		       filtered := make([]string, 0, len(selectedFilesSet))
+		       for _, entry := range mangaEntries {
+			       if _, ok := selectedFilesSet[entry]; ok {
+				       filtered = append(filtered, entry)
+			       }
+		       }
+		       mangaEntries = filtered
+	       }
+       }
+
+       if len(mangaEntries) == 0 {
+	       logger.Error("No CBZ files or folders found in the upload directory (after filtering by selection)")
+	       processManager.FailProcess(proc.ID, "No CBZ files or folders found in the upload directory (after filtering by selection)")
+	       return
+       }
+
+       logger.Info(fmt.Sprintf("Found %d CBZ files or folders to process", len(mangaEntries)))
 
 	// Ask user which files to delete before processing
 	proc.Update(35, 100, "Select files to delete (if needed)...")
