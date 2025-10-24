@@ -2,7 +2,6 @@ package processor
 
 import (
 	"archive/zip"
-	"bufio"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -17,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 	// Uncomment these imports to enable performance profiling
 	// _ "net/http/pprof"
@@ -231,141 +229,44 @@ func extractZip(zipPath, targetDir string) error {
 	}
 	defer r.Close()
 
-	// Calculate the optimal number of workers based on CPU count
-	concurrency := runtime.NumCPU()
-	if concurrency > 16 {
-		concurrency = 16 // Cap at 16 to avoid excessive concurrency
-	}
-
-	// Create semaphore for limiting concurrency
-	sem := make(chan struct{}, concurrency)
-	var wg sync.WaitGroup
-
-	// Use atomics for tracking errors
-	var errCount int32
-	var firstErr error
-	var errMu sync.Mutex
-
-	// Preallocate important directories - this avoids contention during extraction
-	seenDirs := make(map[string]struct{})
+	// Extract files sequentially
 	for _, f := range r.File {
+		// Skip directories
 		if f.FileInfo().IsDir() {
 			continue
 		}
 
-		// Extract directory path
-		dirPath := filepath.Dir(filepath.Join(targetDir, f.Name))
-		if _, ok := seenDirs[dirPath]; !ok {
-			seenDirs[dirPath] = struct{}{}
-
-			// Create directory now to avoid parallel creation issues
-			if err := os.MkdirAll(dirPath, 0755); err != nil {
-				return fmt.Errorf("failed to create directory %s: %v", dirPath, err)
-			}
-		}
-	}
-
-	// Process files in batches
-	batchSize := 50
-	fileCount := len(r.File)
-	for i := 0; i < fileCount; i += batchSize {
-		end := i + batchSize
-		if end > fileCount {
-			end = len(r.File)
+		// Skip non-image/non-xml files for efficiency
+		if !isImageFile(f.Name) && !strings.HasSuffix(strings.ToLower(f.Name), ".xml") {
+			continue
 		}
 
-		batch := r.File[i:end]
+		// Calculate target path
+		destPath := filepath.Join(targetDir, f.Name)
 
-		// Start workers for this batch
-		for _, file := range batch {
-			// Skip directories
-			if file.FileInfo().IsDir() {
-				continue
-			}
-
-			// Skip non-image/non-xml files for efficiency
-			if !isImageFile(file.Name) && !strings.HasSuffix(strings.ToLower(file.Name), ".xml") {
-				continue
-			}
-
-			wg.Add(1)
-			sem <- struct{}{} // Acquire token
-
-			go func(f *zip.File) {
-				defer wg.Done()
-				defer func() { <-sem }() // Release token
-
-				// Calculate target path
-				destPath := filepath.Join(targetDir, f.Name)
-
-				// Open the file from the ZIP
-				rc, err := f.Open()
-				if err != nil {
-					errMu.Lock()
-					if atomic.AddInt32(&errCount, 1) == 1 {
-						firstErr = fmt.Errorf("failed to open file in ZIP: %v", err)
-					}
-					errMu.Unlock()
-					return
-				}
-				defer rc.Close()
-
-				// Create the destination file
-				destFile, err := os.Create(destPath)
-				if err != nil {
-					errMu.Lock()
-					if atomic.AddInt32(&errCount, 1) == 1 {
-						firstErr = fmt.Errorf("failed to create destination file: %v", err)
-					}
-					errMu.Unlock()
-					return
-				}
-				defer destFile.Close()
-
-				// Use optimal buffer size based on file size
-				var bufSize int
-				if f.UncompressedSize64 > 10*1024*1024 { // > 10MB
-					bufSize = 8 * 1024 * 1024 // 8MB buffer for large files
-				} else if f.UncompressedSize64 > 1024*1024 { // > 1MB
-					bufSize = 4 * 1024 * 1024 // 4MB buffer for medium files
-				} else {
-					bufSize = 1 * 1024 * 1024 // 1MB buffer for small files
-				}
-
-				// Use buffered writers for better performance
-				bufWriter := bufio.NewWriterSize(destFile, 8*1024*1024) // 8MB write buffer
-				buf := make([]byte, bufSize)
-
-				// Copy the contents with the buffer
-				if _, err := io.CopyBuffer(bufWriter, rc, buf); err != nil {
-					errMu.Lock()
-					if atomic.AddInt32(&errCount, 1) == 1 {
-						firstErr = fmt.Errorf("failed to copy file contents: %v", err)
-					}
-					errMu.Unlock()
-					return
-				}
-
-				// Flush the buffer - critical to ensure data is written
-				if err := bufWriter.Flush(); err != nil {
-					errMu.Lock()
-					if atomic.AddInt32(&errCount, 1) == 1 {
-						firstErr = fmt.Errorf("failed to flush buffer: %v", err)
-					}
-					errMu.Unlock()
-					return
-				}
-			}(file)
+		// Create directory for the file
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %v", filepath.Dir(destPath), err)
 		}
 
-		// Wait for current batch to finish before starting next batch
-		wg.Wait()
-	}
+		// Open the file from the ZIP
+		rc, err := f.Open()
+		if err != nil {
+			return fmt.Errorf("failed to open file in ZIP: %v", err)
+		}
+		defer rc.Close()
 
-	// Check if there were any errors
-	if errCount > 0 {
-		return fmt.Errorf("encountered %d errors during extraction, first error: %v",
-			errCount, firstErr)
+		// Create the destination file
+		destFile, err := os.Create(destPath)
+		if err != nil {
+			return fmt.Errorf("failed to create destination file: %v", err)
+		}
+		defer destFile.Close()
+
+		// Copy the contents
+		if _, err := io.Copy(destFile, rc); err != nil {
+			return fmt.Errorf("failed to copy file contents: %v", err)
+		}
 	}
 
 	return nil
@@ -380,151 +281,53 @@ func createCBZ(sourceDir, outputPath string) error {
 	}
 	defer zipFile.Close()
 
-	// Create a buffered writer with larger 16MB buffer for better I/O performance
-	bufferedWriter := bufio.NewWriterSize(zipFile, 16*1024*1024)
-	defer bufferedWriter.Flush()
-
-	// Create a new zip writer with optimal compression levels
-	zipWriter := zip.NewWriter(bufferedWriter)
+	// Create a new zip writer
+	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
-	// Get optimal compression workers based on CPU count - use more workers
-	concurrency := runtime.NumCPU()
-	if concurrency > 16 {
-		concurrency = 16 // Cap at 16 to avoid diminishing returns
-	}
-
-	// Semaphore to limit concurrent file operations
-	sem := make(chan struct{}, concurrency)
-	var wg sync.WaitGroup
-	var zipMutex sync.Mutex
-	var errOnce sync.Once
-	var retErr error
-
-	// Get file list before processing to avoid directory traversal during zip creation
-	var files []string
-	err = filepath.WalkDir(sourceDir, func(path string, d fs.DirEntry, err error) error {
+	// Walk the directory and add files to the zip
+	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() {
-			files = append(files, path)
+
+		// Skip directories
+		if info.IsDir() {
+			return nil
 		}
-		return nil
-	})
-	if err != nil {
+
+		// Create a new file header
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+
+		// Set the file name
+		header.Name, err = filepath.Rel(sourceDir, path)
+		if err != nil {
+			return err
+		}
+
+		// Use Store to avoid compression
+		header.Method = zip.Store
+
+		// Create a new file in the zip archive
+		w, err := zipWriter.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+
+		// Open the file to be zipped
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		// Copy the file contents to the zip archive
+		_, err = io.Copy(w, f)
 		return err
-	}
-
-	// Sort files first for better compression
-	sort.Strings(files)
-
-	// Process files in batches - reading and compressing small groups together
-	batchSize := 50
-	for i := 0; i < len(files); i += batchSize {
-		end := i + batchSize
-		if end > len(files) {
-			end = len(files)
-		}
-
-		currentBatch := files[i:end]
-		for _, fp := range currentBatch {
-			// Skip the loop iteration for non-image files that aren't XML
-			if !isImageFile(fp) && !strings.HasSuffix(strings.ToLower(fp), ".xml") {
-				continue
-			}
-
-			wg.Add(1)
-			sem <- struct{}{} // Acquire semaphore
-			go func(filePath string) {
-				defer wg.Done()
-
-				// Get file info
-				info, err := os.Stat(filePath)
-				if err != nil {
-					errOnce.Do(func() { retErr = fmt.Errorf("stat file %s: %w", filePath, err) })
-					<-sem
-					return
-				}
-
-				relPath, err := filepath.Rel(sourceDir, filePath)
-				if err != nil {
-					errOnce.Do(func() { retErr = fmt.Errorf("rel path for %s: %w", filePath, err) })
-					<-sem
-					return
-				}
-
-				// Optimize buffer size based on file size
-				var bufSize int
-				if info.Size() > 10*1024*1024 { // > 10MB
-					bufSize = 8 * 1024 * 1024 // 8MB buffer
-				} else if info.Size() > 1024*1024 { // > 1MB
-					bufSize = 4 * 1024 * 1024 // 4MB buffer
-				} else {
-					bufSize = 1 * 1024 * 1024 // 1MB buffer
-				}
-
-				// Read file with buffered reader
-				file, err := os.Open(filePath)
-				if err != nil {
-					errOnce.Do(func() { retErr = fmt.Errorf("open file %s: %w", filePath, err) })
-					<-sem
-					return
-				}
-
-				// Use buffered reader with appropriate buffer size
-				reader := bufio.NewReaderSize(file, bufSize)
-				content, err := io.ReadAll(reader)
-				file.Close() // Close file immediately after reading
-
-				if err != nil {
-					errOnce.Do(func() { retErr = fmt.Errorf("reading file %s: %w", filePath, err) })
-					<-sem
-					return
-				}
-
-				// Create zip header
-				header, err := zip.FileInfoHeader(info)
-				if err != nil {
-					errOnce.Do(func() { retErr = fmt.Errorf("creating header for %s: %w", filePath, err) })
-					<-sem
-					return
-				}
-				header.Name = filepath.ToSlash(relPath)
-
-				// Use Store (no compression) for all files in CBZ
-				// Images are already compressed, and XML files are tiny
-				// Store mode is optimal for manga readers and faster processing
-				header.Method = zip.Store
-
-				// Acquire lock, create entry, and write content
-				zipMutex.Lock()
-				writer, err := zipWriter.CreateHeader(header)
-				if err != nil {
-					zipMutex.Unlock()
-					errOnce.Do(func() { retErr = fmt.Errorf("creating zip entry for %s: %w", filePath, err) })
-					<-sem
-					return
-				}
-				_, err = writer.Write(content)
-				zipMutex.Unlock()
-
-				if err != nil {
-					errOnce.Do(func() { retErr = fmt.Errorf("writing content for %s: %w", filePath, err) })
-				}
-
-				<-sem // Release semaphore
-			}(fp)
-		}
-
-		// Wait for each batch to complete before starting the next
-		wg.Wait()
-		if retErr != nil {
-			return retErr
-		}
-	}
-
-	return nil
+	})
 }
 
 // copyFile copies a file from src to dst
