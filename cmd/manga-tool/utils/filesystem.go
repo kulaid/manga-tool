@@ -8,7 +8,6 @@ import (
 	"manga-tool/internal/util"
 )
 
-// GetMangaTitles returns a list of manga titles from the manga directory
 func GetMangaTitles(mangaDir string) ([]string, error) {
 	var titles []string
 
@@ -32,7 +31,6 @@ func GetMangaTitles(mangaDir string) ([]string, error) {
 	for _, file := range files {
 		if file.IsDir() {
 			titles = append(titles, file.Name())
-			log.Printf("Found manga directory: %s", file.Name())
 		}
 	}
 
