@@ -602,17 +602,16 @@ func (h *MangaOperationHandler) ConfirmDeleteHandler(w http.ResponseWriter, r *h
 	// Get manga folders (top-level only) and info for GET request
 	mangaPath := filepath.Join(h.Config.MangaBaseDir, mangaTitle)
 
-	// List only top-level directories (folders) inside mangaPath
-	dirs := []string{}
-	entries, err := os.ReadDir(mangaPath)
+	// List top-level folders and .cbz files inside mangaPath
+	var files []string
 	totalSizeMB := 0.0
+	entries, err := os.ReadDir(mangaPath)
 	if err != nil {
 		h.Logger("WARNING", fmt.Sprintf("Error reading directory for %s: %v", mangaTitle, err))
 	} else {
 		for _, entry := range entries {
 			if entry.IsDir() {
-				dirs = append(dirs, entry.Name())
-				// Optionally, sum up the size of all files in this folder
+				files = append(files, entry.Name())
 				folderPath := filepath.Join(mangaPath, entry.Name())
 				filepath.Walk(folderPath, func(_ string, info os.FileInfo, err error) error {
 					if err == nil && !info.IsDir() {
@@ -620,11 +619,17 @@ func (h *MangaOperationHandler) ConfirmDeleteHandler(w http.ResponseWriter, r *h
 					}
 					return nil
 				})
+			} else if strings.HasSuffix(strings.ToLower(entry.Name()), ".cbz") {
+				files = append(files, entry.Name())
+				fileInfo, err := entry.Info()
+				if err == nil {
+					totalSizeMB += float64(fileInfo.Size()) / (1024 * 1024)
+				}
 			}
 		}
 	}
 
-	fileCount := len(dirs)
+	fileCount := len(files)
 	sizeFormatted := fmt.Sprintf("%.2f", totalSizeMB)
 
 	data := map[string]interface{}{
@@ -633,7 +638,7 @@ func (h *MangaOperationHandler) ConfirmDeleteHandler(w http.ResponseWriter, r *h
 		"MangaTitle":  mangaTitle,
 		"file_count":  fileCount,
 		"size_mb":     sizeFormatted,
-		"files":       dirs,
+		"files":       files,
 		"Year":        time.Now().Year(),
 		"CurrentYear": time.Now().Year(),
 	}
@@ -747,25 +752,52 @@ func (h *MangaOperationHandler) DeleteFilesHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// Get list of top-level folders and .cbz files for GET request
-	var files []string
+	// Get list of top-level folders and .cbz files for GET request, with details for template
+	var fileList []map[string]interface{}
 	entries, err := os.ReadDir(mangaPath)
 	if err != nil {
 		http.Redirect(w, r, "/manage-manga", http.StatusSeeOther)
 		return
 	}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			files = append(files, entry.Name())
-		} else if strings.HasSuffix(strings.ToLower(entry.Name()), ".cbz") {
-			files = append(files, entry.Name())
+	for idx, entry := range entries {
+		fileInfo, err := entry.Info()
+		if err != nil {
+			continue
 		}
+		item := map[string]interface{}{
+			"ID":   idx,
+			"Name": entry.Name(),
+			"Path": entry.Name(),
+			"IsFolder": entry.IsDir(),
+		}
+		if entry.IsDir() {
+			// Count files inside folder for display
+			count := 0
+			folderPath := filepath.Join(mangaPath, entry.Name())
+			filepath.Walk(folderPath, func(_ string, info os.FileInfo, err error) error {
+				if err == nil && !info.IsDir() {
+					count++
+				}
+				return nil
+			})
+			item["Size"] = fmt.Sprintf("%d files", count)
+		} else if strings.HasSuffix(strings.ToLower(entry.Name()), ".cbz") {
+			sizeKB := fileInfo.Size() / 1024
+			if sizeKB > 1024 {
+				sizeMB := float64(sizeKB) / 1024
+				item["Size"] = fmt.Sprintf("%.1f MB", sizeMB)
+			} else {
+				item["Size"] = fmt.Sprintf("%d KB", sizeKB)
+			}
+		}
+		fileList = append(fileList, item)
 	}
 
 	data := map[string]interface{}{
 		"Title":      "Delete Files for " + mangaTitle,
 		"MangaTitle": mangaTitle,
-		"Files":      files,
+		"Files":      fileList,
+		"FileCount":  len(fileList),
 		"Year":       time.Now().Year(),
 	}
 
