@@ -191,7 +191,6 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 			return
 		}
 
-
 		// Create a manga-specific temp directory for reprocessing
 		mangaTempDir = filepath.Join(appConfig.TempDir, fmt.Sprintf("manga_%s_%s", mangaTitle, proc.ID))
 		if err := os.MkdirAll(mangaTempDir, 0755); err != nil {
@@ -319,7 +318,6 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 		processManager.FailProcess(proc.ID, fmt.Sprintf("Error finding files/folders: %v", err))
 		return
 	}
-
 
 	if len(mangaEntries) == 0 {
 		logger.Error("No CBZ files or folders found in the upload directory (after filtering by selection)")
