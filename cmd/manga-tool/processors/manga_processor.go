@@ -207,44 +207,26 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 		proc.Update(10, 100, "Moving files to temp directory...")
 		logger.Info(fmt.Sprintf("Moving %d files from %s to %s", len(filesToMove), mangaTargetDir, mangaTempDir))
 
-		var wg sync.WaitGroup
-		var mu sync.Mutex
-		movedCount := 0
-		startTime := time.Now()
 
-		logger.Info(fmt.Sprintf("Starting concurrent move of %d selected files...", len(filesToMove)))
-
-		for _, srcFile := range filesToMove {
-			wg.Add(1)
-
-			go func(src string) {
-				defer wg.Done()
-
-				dstFile := filepath.Join(mangaTempDir, filepath.Base(src))
-
-				// Copy the file
-				if err := util.CopyFile(src, dstFile); err != nil {
-					logger.Warning(fmt.Sprintf("Failed to copy file %s: %v", filepath.Base(src), err))
-					return
-				}
-
-				// Delete the original file after successful copy
-				if err := os.Remove(src); err != nil {
-					logger.Warning(fmt.Sprintf("Failed to remove original file %s: %v", filepath.Base(src), err))
-					// Continue anyway - the copy succeeded
-				}
-
-				mu.Lock()
-				movedCount++
-				mu.Unlock()
-			}(srcFile)
-		}
-
-		// Wait for all moves to complete
-		wg.Wait()
-		elapsed := time.Since(startTime)
-
-		logger.Info(fmt.Sprintf("Successfully moved %d/%d files in %v (all concurrent)", movedCount, len(filesToMove), elapsed.Round(time.Millisecond)))
+	       movedCount := 0
+	       startTime := time.Now()
+	       logger.Info(fmt.Sprintf("Starting batch move of %d selected files...", len(filesToMove)))
+	       for _, srcFile := range filesToMove {
+		       dstFile := filepath.Join(mangaTempDir, filepath.Base(srcFile))
+		       // Copy the file
+		       if err := util.CopyFile(srcFile, dstFile); err != nil {
+			       logger.Warning(fmt.Sprintf("Failed to copy file %s: %v", filepath.Base(srcFile), err))
+			       continue
+		       }
+		       // Delete the original file after successful copy
+		       if err := os.Remove(srcFile); err != nil {
+			       logger.Warning(fmt.Sprintf("Failed to remove original file %s: %v", filepath.Base(srcFile), err))
+			       // Continue anyway - the copy succeeded
+		       }
+		       movedCount++
+	       }
+	       elapsed := time.Since(startTime)
+	       logger.Info(fmt.Sprintf("Successfully moved %d/%d files in %v (batch move)", movedCount, len(filesToMove), elapsed.Round(time.Millisecond)))
 
 		// Don't delete temp files during processing - we need them to reprocess
 		deleteOriginals = false
