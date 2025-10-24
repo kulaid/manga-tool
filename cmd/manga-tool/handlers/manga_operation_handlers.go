@@ -726,10 +726,10 @@ func (h *MangaOperationHandler) DeleteFilesHandler(w http.ResponseWriter, r *htt
 			komgaClient := createKomgaClient(h.Config, proc.ID, h.Logger)
 
 			if komgaClient.RefreshAllLibraries() {
-					h.Logger("INFO", "Successfully refreshed Komga libraries")
-				} else {
-					h.Logger("WARNING", "Failed to refresh Komga libraries")
-				}
+				h.Logger("INFO", "Successfully refreshed Komga libraries")
+			} else {
+				h.Logger("WARNING", "Failed to refresh Komga libraries")
+			}
 
 			h.Logger("INFO", fmt.Sprintf("Successfully deleted %d folders", deletedCount))
 
