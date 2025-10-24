@@ -59,17 +59,17 @@ func (h *MangaHandler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get all form values
-       formData := ProcessFormData{
-	       MangaTitle:       mangaTitle,
-	       MangaReaderURL:   r.FormValue("mangareader_url"),
-	       MangaDexURL:      r.FormValue("mangadex_url"),
-	       DownloadURL:      r.FormValue("download_url"),
-	       IsOneshot:        r.FormValue("is_oneshot") == "true",
-	       DeleteOriginals:  r.FormValue("delete_originals") == "true",
-	       AsFolder:         r.FormValue("as_folder") == "true",
-	       Language:         r.FormValue("language"),
-	       IsUpdateMetadata: false,
-       }
+	formData := ProcessFormData{
+		MangaTitle:       mangaTitle,
+		MangaReaderURL:   r.FormValue("mangareader_url"),
+		MangaDexURL:      r.FormValue("mangadex_url"),
+		DownloadURL:      r.FormValue("download_url"),
+		IsOneshot:        r.FormValue("is_oneshot") == "true",
+		DeleteOriginals:  r.FormValue("delete_originals") == "true",
+		AsFolder:         r.FormValue("as_folder") == "true",
+		Language:         r.FormValue("language"),
+		IsUpdateMetadata: false,
+	}
 
 	// Get uploaded files
 	files := r.MultipartForm.File["manga_files"]
