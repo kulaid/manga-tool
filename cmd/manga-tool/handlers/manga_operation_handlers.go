@@ -747,8 +747,8 @@ func (h *MangaOperationHandler) DeleteFilesHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// Get list of top-level folders for GET request
-	dirs := []string{}
+	// Get list of top-level folders and .cbz files for GET request
+	var files []string
 	entries, err := os.ReadDir(mangaPath)
 	if err != nil {
 		http.Redirect(w, r, "/manage-manga", http.StatusSeeOther)
@@ -756,14 +756,16 @@ func (h *MangaOperationHandler) DeleteFilesHandler(w http.ResponseWriter, r *htt
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
-			dirs = append(dirs, entry.Name())
+			files = append(files, entry.Name())
+		} else if strings.HasSuffix(strings.ToLower(entry.Name()), ".cbz") {
+			files = append(files, entry.Name())
 		}
 	}
 
 	data := map[string]interface{}{
-		"Title":      "Delete Folders for " + mangaTitle,
+		"Title":      "Delete Files for " + mangaTitle,
 		"MangaTitle": mangaTitle,
-		"Files":      dirs,
+		"Files":      files,
 		"Year":       time.Now().Year(),
 	}
 
@@ -771,29 +773,6 @@ func (h *MangaOperationHandler) DeleteFilesHandler(w http.ResponseWriter, r *htt
 }
 
 // getFiles recursively gets all files in a directory
-func (h *MangaOperationHandler) getFiles(dir string) ([]string, error) {
-	var files []string
-
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if !info.IsDir() {
-			// Get relative path
-			relPath, err := filepath.Rel(dir, path)
-			if err != nil {
-				return err
-			}
-
-			files = append(files, relPath)
-		}
-
-		return nil
-	})
-
-	return files, err
-}
 
 // StatusHandler handles status requests for processes
 func (h *MangaOperationHandler) StatusHandler(w http.ResponseWriter, r *http.Request) {
