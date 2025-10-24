@@ -306,64 +306,63 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 			}
 		}
 
+		// Get selected files from form
+		selectedFiles := r.Form["selected_files"]
+		if len(selectedFiles) == 0 {
+			http.Error(w, "No files selected for update", http.StatusBadRequest)
+			return
+		}
 
-	       // Get selected files from form
-	       selectedFiles := r.Form["selected_files"]
-	       if len(selectedFiles) == 0 {
-		       http.Error(w, "No files selected for update", http.StatusBadRequest)
-		       return
-	       }
+		// Start a process to update metadata
+		proc := h.ProcessManager.NewProcess(internal.ProcessTypeMetadataUpdate, mangaTitle)
+		h.Logger("INFO", fmt.Sprintf("Starting metadata update for %s (Process ID: %s)", mangaTitle, proc.ID))
 
-	       // Start a process to update metadata
-	       proc := h.ProcessManager.NewProcess(internal.ProcessTypeMetadataUpdate, mangaTitle)
-	       h.Logger("INFO", fmt.Sprintf("Starting metadata update for %s (Process ID: %s)", mangaTitle, proc.ID))
+		// Initialize metadata map if nil
+		if proc.Metadata == nil {
+			proc.Metadata = make(map[string]interface{})
+		}
 
-	       // Initialize metadata map if nil
-	       if proc.Metadata == nil {
-		       proc.Metadata = make(map[string]interface{})
-	       }
+		// Store metadata in process for later use
+		proc.Metadata["mangareader_url"] = mangareaderURL
+		proc.Metadata["mangadex_url"] = mangadexURL
+		proc.Metadata["selected_files"] = selectedFiles
 
-	       // Store metadata in process for later use
-	       proc.Metadata["mangareader_url"] = mangareaderURL
-	       proc.Metadata["mangadex_url"] = mangadexURL
-	       proc.Metadata["selected_files"] = selectedFiles
+		// Set up process cancellation
+		cancelChan, forceCancelChan := setupProcessCancellation(proc)
 
-	       // Set up process cancellation
-	       cancelChan, forceCancelChan := setupProcessCancellation(proc)
+		// Initialize the prompt manager
+		initializePromptManager := createPromptManagerInitializer(h.Logger)
 
-	       // Initialize the prompt manager
-	       initializePromptManager := createPromptManagerInitializer(h.Logger)
+		// Get safe WebInput function
+		webInputFunc := getWebInputFunc(h.WebInput, h.Logger)
 
-	       // Get safe WebInput function
-	       webInputFunc := getWebInputFunc(h.WebInput, h.Logger)
+		// Prepare data for ProcessManga - similar to normal processing but with update_metadata flag
+		threadData := map[string]interface{}{
+			"manga_title":      mangaTitle,
+			"mangareader_url":  mangareaderURL,
+			"mangadex_url":     mangadexURL,
+			"download_url":     "", // No download for metadata update
+			"is_manga":         true,
+			"is_oneshot":       isOneshot,
+			"delete_originals": false,
+			"language":         "en",
+			"update_metadata":  true, // Flag to indicate this is a metadata update
+			"as_folder":        asFolder,
+			"selected_files":   selectedFiles,
+		}
 
-	       // Prepare data for ProcessManga - similar to normal processing but with update_metadata flag
-	       threadData := map[string]interface{}{
-		       "manga_title":      mangaTitle,
-		       "mangareader_url":  mangareaderURL,
-		       "mangadex_url":     mangadexURL,
-		       "download_url":     "", // No download for metadata update
-		       "is_manga":         true,
-		       "is_oneshot":       isOneshot,
-		       "delete_originals": false,
-		       "language":         "en",
-		       "update_metadata":  true, // Flag to indicate this is a metadata update
-		       "as_folder":        asFolder,
-		       "selected_files":   selectedFiles,
-	       }
-
-	       // Start metadata update using ProcessManga in a goroutine
-	       go processors.ProcessManga(
-		       threadData,
-		       cancelChan,
-		       forceCancelChan,
-		       convertToProcessorsAppConfig(h.Config, proc.ID, h.Logger),
-		       h.ProcessManager,
-		       proc.ID,
-		       webInputFunc,
-		       h.Logger,
-		       initializePromptManager,
-	       )
+		// Start metadata update using ProcessManga in a goroutine
+		go processors.ProcessManga(
+			threadData,
+			cancelChan,
+			forceCancelChan,
+			convertToProcessorsAppConfig(h.Config, proc.ID, h.Logger),
+			h.ProcessManager,
+			proc.ID,
+			webInputFunc,
+			h.Logger,
+			initializePromptManager,
+		)
 
 		// Return just the process ID as JSON for AJAX requests
 		if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
