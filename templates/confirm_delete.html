@@ -108,12 +108,6 @@
                             </div>
                         {{end}}
                     </div>
-{{/* Helper function for suffix check */}}
-{{define "hasSuffix"}}
-    {{$str := index . 0}}
-    {{$suffix := index . 1}}
-    {{if (eq (substr $str (sub (len $str) (len $suffix))) $suffix)}}true{{else}}false{{end}}
-{{end}}
 
                     <div style="text-align: center; margin-top: var(--spacing-lg);">
                         <a href="/manage-manga" class="btn btn-secondary">
