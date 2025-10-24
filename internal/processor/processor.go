@@ -232,7 +232,7 @@ func extractZip(zipPath, targetDir string) error {
 	defer r.Close()
 
 	// Calculate the optimal number of workers based on CPU count
-	concurrency := runtime.NumCPU() * 2
+	concurrency := runtime.NumCPU()
 	if concurrency > 16 {
 		concurrency = 16 // Cap at 16 to avoid excessive concurrency
 	}
@@ -389,7 +389,7 @@ func createCBZ(sourceDir, outputPath string) error {
 	defer zipWriter.Close()
 
 	// Get optimal compression workers based on CPU count - use more workers
-	concurrency := runtime.NumCPU() * 2
+	concurrency := runtime.NumCPU()
 	if concurrency > 16 {
 		concurrency = 16 // Cap at 16 to avoid diminishing returns
 	}
