@@ -306,54 +306,64 @@ func (h *MangaOperationHandler) UpdateMetadataHandler(w http.ResponseWriter, r *
 			}
 		}
 
-		// Start a process to update metadata
-		proc := h.ProcessManager.NewProcess(internal.ProcessTypeMetadataUpdate, mangaTitle)
-		h.Logger("INFO", fmt.Sprintf("Starting metadata update for %s (Process ID: %s)", mangaTitle, proc.ID))
 
-		// Initialize metadata map if nil
-		if proc.Metadata == nil {
-			proc.Metadata = make(map[string]interface{})
-		}
+	       // Get selected files from form
+	       selectedFiles := r.Form["selected_files"]
+	       if len(selectedFiles) == 0 {
+		       http.Error(w, "No files selected for update", http.StatusBadRequest)
+		       return
+	       }
 
-		// Store metadata in process for later use
-		proc.Metadata["mangareader_url"] = mangareaderURL
-		proc.Metadata["mangadex_url"] = mangadexURL
+	       // Start a process to update metadata
+	       proc := h.ProcessManager.NewProcess(internal.ProcessTypeMetadataUpdate, mangaTitle)
+	       h.Logger("INFO", fmt.Sprintf("Starting metadata update for %s (Process ID: %s)", mangaTitle, proc.ID))
 
-		// Set up process cancellation
-		cancelChan, forceCancelChan := setupProcessCancellation(proc)
+	       // Initialize metadata map if nil
+	       if proc.Metadata == nil {
+		       proc.Metadata = make(map[string]interface{})
+	       }
 
-		// Initialize the prompt manager
-		initializePromptManager := createPromptManagerInitializer(h.Logger)
+	       // Store metadata in process for later use
+	       proc.Metadata["mangareader_url"] = mangareaderURL
+	       proc.Metadata["mangadex_url"] = mangadexURL
+	       proc.Metadata["selected_files"] = selectedFiles
 
-		// Get safe WebInput function
-		webInputFunc := getWebInputFunc(h.WebInput, h.Logger)
+	       // Set up process cancellation
+	       cancelChan, forceCancelChan := setupProcessCancellation(proc)
 
-		// Prepare data for ProcessManga - similar to normal processing but with update_metadata flag
-		threadData := map[string]interface{}{
-			"manga_title":      mangaTitle,
-			"mangareader_url":  mangareaderURL,
-			"mangadex_url":     mangadexURL,
-			"download_url":     "", // No download for metadata update
-			"is_manga":         true,
-			"is_oneshot":       isOneshot,
-			"delete_originals": false,
-			"language":         "en",
-			"update_metadata":  true, // Flag to indicate this is a metadata update
-			"as_folder":        asFolder,
-		}
+	       // Initialize the prompt manager
+	       initializePromptManager := createPromptManagerInitializer(h.Logger)
 
-		// Start metadata update using ProcessManga in a goroutine
-		go processors.ProcessManga(
-			threadData,
-			cancelChan,
-			forceCancelChan,
-			convertToProcessorsAppConfig(h.Config, proc.ID, h.Logger),
-			h.ProcessManager,
-			proc.ID,
-			webInputFunc,
-			h.Logger,
-			initializePromptManager,
-		)
+	       // Get safe WebInput function
+	       webInputFunc := getWebInputFunc(h.WebInput, h.Logger)
+
+	       // Prepare data for ProcessManga - similar to normal processing but with update_metadata flag
+	       threadData := map[string]interface{}{
+		       "manga_title":      mangaTitle,
+		       "mangareader_url":  mangareaderURL,
+		       "mangadex_url":     mangadexURL,
+		       "download_url":     "", // No download for metadata update
+		       "is_manga":         true,
+		       "is_oneshot":       isOneshot,
+		       "delete_originals": false,
+		       "language":         "en",
+		       "update_metadata":  true, // Flag to indicate this is a metadata update
+		       "as_folder":        asFolder,
+		       "selected_files":   selectedFiles,
+	       }
+
+	       // Start metadata update using ProcessManga in a goroutine
+	       go processors.ProcessManga(
+		       threadData,
+		       cancelChan,
+		       forceCancelChan,
+		       convertToProcessorsAppConfig(h.Config, proc.ID, h.Logger),
+		       h.ProcessManager,
+		       proc.ID,
+		       webInputFunc,
+		       h.Logger,
+		       initializePromptManager,
+	       )
 
 		// Return just the process ID as JSON for AJAX requests
 		if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
