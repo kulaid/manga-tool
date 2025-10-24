@@ -765,9 +765,9 @@ func (h *MangaOperationHandler) DeleteFilesHandler(w http.ResponseWriter, r *htt
 			continue
 		}
 		item := map[string]interface{}{
-			"ID":   idx,
-			"Name": entry.Name(),
-			"Path": entry.Name(),
+			"ID":       idx,
+			"Name":     entry.Name(),
+			"Path":     entry.Name(),
 			"IsFolder": entry.IsDir(),
 		}
 		if entry.IsDir() {
