@@ -219,7 +219,7 @@ func (h *MangaHandler) startMetadataUpdateProcess(proc *internal.Process, _ Proc
 
 	// Prepare threadData for metadata update
 	threadData := map[string]interface{}{
-		"manga_title": proc.Title,
+		"manga_title":     proc.Title,
 		"update_metadata": true,
 	}
 
