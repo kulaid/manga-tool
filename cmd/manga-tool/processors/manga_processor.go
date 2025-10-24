@@ -29,7 +29,6 @@ type AppConfig struct {
 	Parallelism      int
 }
 
-
 // Process manga function - this is where the manga processor would be called
 func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, forceCancelChan chan struct{},
 	appConfig AppConfig, processManager *internal.ProcessManager, currentProcessID string,
@@ -162,84 +161,97 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 		default:
 		}
 
-		// Find existing CBZ files and folders in the target directory
-		mangaTargetDir = filepath.Join(appConfig.MangaBaseDir, mangaTitle)
-		existingFiles, err := util.FindMangaEntriesFromMount(mangaTargetDir)
-		if err != nil {
-			logger.Error(fmt.Sprintf("Error finding manga entries: %v", err))
-			processManager.FailProcess(proc.ID, fmt.Sprintf("Error finding manga entries: %v", err))
-			return
-		}
+	       // Find existing CBZ files and folders in the target directory
+	       mangaTargetDir = filepath.Join(appConfig.MangaBaseDir, mangaTitle)
+	       existingFiles, err := util.FindMangaEntriesFromMount(mangaTargetDir)
+	       if err != nil {
+		       logger.Error(fmt.Sprintf("Error finding manga entries: %v", err))
+		       processManager.FailProcess(proc.ID, fmt.Sprintf("Error finding manga entries: %v", err))
+		       return
+	       }
 
-		if len(existingFiles) == 0 {
-			logger.Error("No CBZ files or folders found for this manga")
-			processManager.FailProcess(proc.ID, "No CBZ files or folders found for this manga")
-			return
-		}
+	       // Filter to only selected files if present
+	       var filesToMove []string
+	       if val, ok := threadData["selected_files"]; ok {
+		       if arr, ok := val.([]string); ok {
+			       selectedSet := make(map[string]struct{}, len(arr))
+			       for _, f := range arr {
+				       selectedSet[f] = struct{}{}
+			       }
+			       for _, f := range existingFiles {
+				       if _, ok := selectedSet[f]; ok {
+					       filesToMove = append(filesToMove, f)
+				       }
+			       }
+		       }
+	       }
+	       if len(filesToMove) == 0 {
+		       logger.Error("No selected files to reprocess (after filtering)")
+		       processManager.FailProcess(proc.ID, "No selected files to reprocess (after filtering)")
+		       return
+	       }
 
-		logger.Info(fmt.Sprintf("Found %d CBZ files or folders to reprocess", len(existingFiles)))
+	       logger.Info(fmt.Sprintf("Found %d CBZ files or folders to reprocess (selected)", len(filesToMove)))
 
-		// Create a manga-specific temp directory for reprocessing
-		mangaTempDir = filepath.Join(appConfig.TempDir, fmt.Sprintf("manga_%s_%s", mangaTitle, proc.ID))
-		if err := os.MkdirAll(mangaTempDir, 0755); err != nil {
-			logger.Error(fmt.Sprintf("Failed to create temp directory: %v", err))
-			processManager.FailProcess(proc.ID, fmt.Sprintf("Failed to create temp directory: %v", err))
-			return
-		}
-		// DO NOT defer cleanup here - we'll clean up at the end after processing
-		cleanupTempDir = true // Mark that we created this temp dir and should clean it up
+	       // Create a manga-specific temp directory for reprocessing
+	       mangaTempDir = filepath.Join(appConfig.TempDir, fmt.Sprintf("manga_%s_%s", mangaTitle, proc.ID))
+	       if err := os.MkdirAll(mangaTempDir, 0755); err != nil {
+		       logger.Error(fmt.Sprintf("Failed to create temp directory: %v", err))
+		       processManager.FailProcess(proc.ID, fmt.Sprintf("Failed to create temp directory: %v", err))
+		       return
+	       }
+	       // DO NOT defer cleanup here - we'll clean up at the end after processing
+	       cleanupTempDir = true // Mark that we created this temp dir and should clean it up
 
-		// MOVE files from Komga directory to temp directory in parallel
-		// Since they're on different filesystems, we copy then delete
-		proc.Update(10, 100, "Moving files to temp directory...")
-		logger.Info(fmt.Sprintf("Moving %d files from %s to %s", len(existingFiles), mangaTargetDir, mangaTempDir))
+	       // MOVE only selected files from Komga directory to temp directory in parallel
+	       proc.Update(10, 100, "Moving files to temp directory...")
+	       logger.Info(fmt.Sprintf("Moving %d files from %s to %s", len(filesToMove), mangaTargetDir, mangaTempDir))
 
-		// Move ALL files concurrently without limiting parallelism
-		var wg sync.WaitGroup
-		var mu sync.Mutex
-		movedCount := 0
-		startTime := time.Now()
+	       var wg sync.WaitGroup
+	       var mu sync.Mutex
+	       movedCount := 0
+	       startTime := time.Now()
 
-		logger.Info(fmt.Sprintf("Starting concurrent move of all %d files...", len(existingFiles)))
+	       logger.Info(fmt.Sprintf("Starting concurrent move of %d selected files...", len(filesToMove)))
 
-		for _, srcFile := range existingFiles {
-			wg.Add(1)
+	       for _, srcFile := range filesToMove {
+		       wg.Add(1)
 
-			go func(src string) {
-				defer wg.Done()
+		       go func(src string) {
+			       defer wg.Done()
 
-				dstFile := filepath.Join(mangaTempDir, filepath.Base(src))
+			       dstFile := filepath.Join(mangaTempDir, filepath.Base(src))
 
-				// Copy the file
-				if err := util.CopyFile(src, dstFile); err != nil {
-					logger.Warning(fmt.Sprintf("Failed to copy file %s: %v", filepath.Base(src), err))
-					return
-				}
+			       // Copy the file
+			       if err := util.CopyFile(src, dstFile); err != nil {
+				       logger.Warning(fmt.Sprintf("Failed to copy file %s: %v", filepath.Base(src), err))
+				       return
+			       }
 
-				// Delete the original file after successful copy
-				if err := os.Remove(src); err != nil {
-					logger.Warning(fmt.Sprintf("Failed to remove original file %s: %v", filepath.Base(src), err))
-					// Continue anyway - the copy succeeded
-				}
+			       // Delete the original file after successful copy
+			       if err := os.Remove(src); err != nil {
+				       logger.Warning(fmt.Sprintf("Failed to remove original file %s: %v", filepath.Base(src), err))
+				       // Continue anyway - the copy succeeded
+			       }
 
-				mu.Lock()
-				movedCount++
-				mu.Unlock()
-			}(srcFile)
-		}
+			       mu.Lock()
+			       movedCount++
+			       mu.Unlock()
+		       }(srcFile)
+	       }
 
-		// Wait for all moves to complete
-		wg.Wait()
-		elapsed := time.Since(startTime)
+	       // Wait for all moves to complete
+	       wg.Wait()
+	       elapsed := time.Since(startTime)
 
-		logger.Info(fmt.Sprintf("Successfully moved %d/%d files in %v (all concurrent)", movedCount, len(existingFiles), elapsed.Round(time.Millisecond)))
+	       logger.Info(fmt.Sprintf("Successfully moved %d/%d files in %v (all concurrent)", movedCount, len(filesToMove), elapsed.Round(time.Millisecond)))
 
-		// Don't delete temp files during processing - we need them to reprocess
-		deleteOriginals = false
+	       // Don't delete temp files during processing - we need them to reprocess
+	       deleteOriginals = false
 
-		// Files moved to temp. Continue with normal flow from step 3 (Find CBZ files)
-		// After processing, new files with new names will be in the target directory
-		logger.Info("Files moved to temp directory. Continuing with normal processing flow...")
+	       // Files moved to temp. Continue with normal flow from step 3 (Find CBZ files)
+	       // After processing, new files with new names will be in the target directory
+	       logger.Info("Files moved to temp directory. Continuing with normal processing flow...")
 	}
 
 	// Regular manga processing
@@ -332,39 +344,37 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 	logger.Info(fmt.Sprintf("Directory exists: %v", util.DirExists(mangaTempDir)))
 	logger.Info(fmt.Sprintf("Directory permissions: %v", util.GetDirPermissions(mangaTempDir)))
 
+	mangaEntries, err := util.FindMangaEntriesFromMount(mangaTempDir)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Error finding files/folders: %v", err))
+		processManager.FailProcess(proc.ID, fmt.Sprintf("Error finding files/folders: %v", err))
+		return
+	}
 
-       mangaEntries, err := util.FindMangaEntriesFromMount(mangaTempDir)
-       if err != nil {
-	       logger.Error(fmt.Sprintf("Error finding files/folders: %v", err))
-	       processManager.FailProcess(proc.ID, fmt.Sprintf("Error finding files/folders: %v", err))
-	       return
-       }
+	// If selected_files is present in threadData, filter mangaEntries to only those selected
+	if val, ok := threadData["selected_files"]; ok {
+		if arr, ok := val.([]string); ok {
+			selectedFilesSet := make(map[string]struct{}, len(arr))
+			for _, f := range arr {
+				selectedFilesSet[f] = struct{}{}
+			}
+			filtered := make([]string, 0, len(selectedFilesSet))
+			for _, entry := range mangaEntries {
+				if _, ok := selectedFilesSet[entry]; ok {
+					filtered = append(filtered, entry)
+				}
+			}
+			mangaEntries = filtered
+		}
+	}
 
+	if len(mangaEntries) == 0 {
+		logger.Error("No CBZ files or folders found in the upload directory (after filtering by selection)")
+		processManager.FailProcess(proc.ID, "No CBZ files or folders found in the upload directory (after filtering by selection)")
+		return
+	}
 
-       // If selected_files is present in threadData, filter mangaEntries to only those selected
-       if val, ok := threadData["selected_files"]; ok {
-	       if arr, ok := val.([]string); ok {
-		       selectedFilesSet := make(map[string]struct{}, len(arr))
-		       for _, f := range arr {
-			       selectedFilesSet[f] = struct{}{}
-		       }
-		       filtered := make([]string, 0, len(selectedFilesSet))
-		       for _, entry := range mangaEntries {
-			       if _, ok := selectedFilesSet[entry]; ok {
-				       filtered = append(filtered, entry)
-			       }
-		       }
-		       mangaEntries = filtered
-	       }
-       }
-
-       if len(mangaEntries) == 0 {
-	       logger.Error("No CBZ files or folders found in the upload directory (after filtering by selection)")
-	       processManager.FailProcess(proc.ID, "No CBZ files or folders found in the upload directory (after filtering by selection)")
-	       return
-       }
-
-       logger.Info(fmt.Sprintf("Found %d CBZ files or folders to process", len(mangaEntries)))
+	logger.Info(fmt.Sprintf("Found %d CBZ files or folders to process", len(mangaEntries)))
 
 	// Ask user which files to delete before processing
 	proc.Update(35, 100, "Select files to delete (if needed)...")
