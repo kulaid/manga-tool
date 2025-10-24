@@ -40,11 +40,9 @@ func ProcessManga(threadData map[string]interface{}, cancelChan chan struct{}, f
 	isOneshot, _ := threadData["is_oneshot"].(bool)
 	mangareaderURL, _ := threadData["mangareader_url"].(string)
 	mangadexURL, _ := threadData["mangadex_url"].(string)
-	// isManga is not used directly but keeping for completeness
-	_ = threadData["is_manga"].(bool)
 	deleteOriginals, _ := threadData["delete_originals"].(bool)
 	language, _ := threadData["language"].(string)
-	updateMetadata, _ := threadData["update_metadata"].(bool) // Check if this is a metadata update
+	updateMetadata, _ := threadData["update_metadata"].(bool)
 	asFolder, _ := threadData["as_folder"].(bool)
 
 	// Get the current process
