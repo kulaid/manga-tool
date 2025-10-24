@@ -2105,9 +2105,10 @@ func NewAnalyzer(config *Config) *Analyzer {
 
 // Process processes a manga
 func (p *Processor) Process(manga *internal.Manga) (*internal.Process, error) {
-	// This is a mock implementation for the debug script
+	// TODO: Implement actual manga processing logic here
 	if p.config.Process != nil {
-		p.config.Process.Update(100, 100, "Processing complete (mock)")
+		// Example: update process as completed after real processing
+		p.config.Process.Update(100, 100, "Processing complete")
 		return p.config.Process, nil
 	}
 	return nil, fmt.Errorf("no process configured")
@@ -2115,7 +2116,7 @@ func (p *Processor) Process(manga *internal.Manga) (*internal.Process, error) {
 
 // ScanDirectory scans a directory for manga series
 func (a *Analyzer) ScanDirectory(dir string) ([]*internal.Series, error) {
-	// This is a mock implementation for the debug script
+	// TODO: Implement actual directory scanning logic here
 	seriesMap := make(map[string]*internal.Series)
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

@@ -215,26 +215,27 @@ func (h *MangaHandler) startMetadataUpdateProcess(proc *internal.Process, _ Proc
 	h.Logger("INFO", fmt.Sprintf("Starting metadata update process: %s for %s", proc.ID, proc.Title))
 
 	// Set up process cancellation
-	cancelChan, _ := setupProcessCancellation(proc)
+	cancelChan, forceCancelChan := setupProcessCancellation(proc)
 
-	// Start metadata update in a goroutine
-	go func() {
-		h.Logger("INFO", fmt.Sprintf("Starting metadata update for %s", proc.Title))
+	// Prepare threadData for metadata update
+	threadData := map[string]interface{}{
+		"manga_title": proc.Title,
+		"update_metadata": true,
+	}
 
-		// Mock update progress (replace with actual metadata update logic)
-		for i := 0; i <= 5; i++ {
-			select {
-			case <-cancelChan:
-				return
-			default:
-				proc.Update(i, 5, fmt.Sprintf("Updating metadata: %d%%", i*20))
-				time.Sleep(500 * time.Millisecond)
-			}
-		}
+	appConfig := h.Config
 
-		proc.Update(5, 5, "Metadata update completed")
-		h.ProcessManager.CompleteProcess(proc.ID)
-	}()
+	go processors.ProcessManga(
+		threadData,
+		cancelChan,
+		forceCancelChan,
+		convertToProcessorsAppConfig(appConfig, proc.ID, h.Logger),
+		h.ProcessManager,
+		proc.ID,
+		nil, // webInputFunc not needed for metadata update
+		h.Logger,
+		nil, // initializePromptManager not needed for metadata update
+	)
 }
 
 // startMangaProcessing starts the main manga processing workflow
