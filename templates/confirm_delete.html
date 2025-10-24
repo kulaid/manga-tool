@@ -85,7 +85,7 @@
 
             <hr style="margin: var(--spacing-xl) 0; border-color: var(--border-color);">
             
-            <h3 style="text-align: center; margin-bottom: var(--spacing-lg); color: var(--text-primary);">Or Delete Individual Folders</h3>
+            <h3 style="text-align: center; margin-bottom: var(--spacing-lg); color: var(--text-primary);">Or Delete Individual Files or Folders</h3>
             
             <form method="post" action="/delete-files/{{.title}}" id="delete-form">
                 {{if gt .file_count 0}}
@@ -105,12 +105,23 @@
                                     <input class="form-check-input file-checkbox" type="checkbox" 
                                         value="{{.}}" id="file-{{.}}" name="files">
                                     <label class="form-check-label" for="file-{{.}}">
-                                        {{.}} <span style="color:#aaa;font-size:0.9em;">(folder)</span>
+                                        {{.}}
+                                        {{if (hasSuffix . ".cbz")}}
+                                            <span style="color:#aaa;font-size:0.9em;">(file)</span>
+                                        {{else}}
+                                            <span style="color:#aaa;font-size:0.9em;">(folder)</span>
+                                        {{end}}
                                     </label>
                                 </div>
                             </div>
                         {{end}}
                     </div>
+{{/* Helper function for suffix check */}}
+{{define "hasSuffix"}}
+    {{$str := index . 0}}
+    {{$suffix := index . 1}}
+    {{if (eq (substr $str (sub (len $str) (len $suffix))) $suffix)}}true{{else}}false{{end}}
+{{end}}
 
                     <div style="text-align: center; margin-top: var(--spacing-lg);">
                         <a href="/manage-manga" class="btn btn-secondary">
