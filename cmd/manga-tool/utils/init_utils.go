@@ -62,8 +62,9 @@ func Initialize(appConfig *AppConfig) (*template.Template, error) {
 	}
 
 	// Define template functions
-	funcMap := template.FuncMap{
-		"contains": strings.Contains,
+       funcMap := template.FuncMap{
+	       "contains": strings.Contains,
+	       "hasSuffix": strings.HasSuffix,
 		"formatTime": func(t time.Time) string {
 			return t.Format("2006-01-02 15:04:05")
 		},
